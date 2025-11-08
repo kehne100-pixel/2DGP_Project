@@ -1,60 +1,29 @@
+# main.py
 from pico2d import *
+from Keroro import Boy
 
-open_canvas(800, 600)
-
-character = load_image('Keroro_Sheet.png')
-
-
-running = True
-x, y = 400, 300
-frame = 0
-dir_x, dir_y = 0, 0
-look_dir = 0
-
-def handle_events():
-    global running, dir_x, dir_y, look_dir, dir_x, dir_y, frame, last_dir
+def handle_events(boy):
     events = get_events()
-    for event in events:
-        if event.type == SDL_QUIT:
-            running = False
-        elif event.type == SDL_KEYDOWN:
-            if event.key == SDLK_RIGHT:
-                dir_x += 1
-                last_dir = 1
-            elif event.key == SDLK_LEFT:
-                dir_x -= 1
-                last_dir = -1
-            elif event.key == SDLK_UP:
-                dir_y += 1
+    for e in events:
+        if e.type == SDL_QUIT:
+            return False
+        if e.type == SDL_KEYDOWN and e.key == SDLK_ESCAPE:
+            return False
+        boy.handle_event(e)
+    return True
 
-            elif event.key == SDLK_DOWN:
-                dir_y -= 1
-            elif event.key == SDLK_ESCAPE:
-                running = False
-        elif event.type == SDL_KEYUP:
-            if event.key == SDLK_RIGHT:
-                dir_x -= 1
-            elif event.key == SDLK_LEFT:
-                dir_x += 1
-            elif event.key == SDLK_UP:
-                dir_y -= 1
-            elif event.key == SDLK_DOWN:
-                dir_y += 1
+def main():
+    open_canvas(800, 600)
+    boy = Boy()
+    running = True
+    while running:
+        running = handle_events(boy)
+        clear_canvas()
+        boy.update()
+        boy.draw()
+        update_canvas()
+        delay(0.01)
+    close_canvas()
 
-
-
-
-
-
-
-
-while running:
-    clear_canvas()
-
-
-
-
-
-
-
-
+if __name__ == '__main__':
+    main()
