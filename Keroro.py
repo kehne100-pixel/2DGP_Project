@@ -25,11 +25,32 @@ def row_y_from_top(row_from_top):
 # idle: 1행 1~4열, run: 5행 1~4열
 SPRITE = {
     'idle': {'row': 0, 'start_col': 0, 'frames': 4, 'flip_when_left': True},
-    'run':  {'row': 4, 'start_col': 0, 'frames': 4, 'flip_when_left': True},
+    'run': {
+        'rects': [
+            (4,   1544, 60, 60),
+            (67,  1544, 60, 60),
+            (132, 1544, 60, 60),
+            (198, 1544, 60, 60),
+        ],
+        'flip_when_left': True
+    },
 }
+
+
 
 def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=DRAW_H):
     cfg = SPRITE[key]
+
+    # rects 우선(불규칙 좌표)
+    if 'rects' in cfg:
+        sx, sy, sw, sh = cfg['rects'][frame_idx % len(cfg['rects'])]
+        if face_dir == -1 and cfg.get('flip_when_left', False):
+            image.clip_composite_draw(sx, sy, sw, sh, 0, 'h', x, y, draw_w, draw_h)
+        else:
+            image.clip_draw(sx, sy, sw, sh, x, y, draw_w, draw_h)
+        return
+
+    # grid 방식
     sx = (cfg['start_col'] + frame_idx) * CELL_W
     sy = row_y_from_top(cfg['row'])
     if face_dir == -1 and cfg.get('flip_when_left', False):
@@ -43,16 +64,22 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
 class Idle:
     def __init__(self, keroro):
         self.keroro = keroro
+        self.frame = 0
+        self.frame_count = 4
+
 
     def enter(self, e):
         self.keroro.dir = 0
         self.keroro.wait_start_time = get_time()
+        self.frame = 0
+
 
     def exit(self, e):
         pass
 
     def do(self):
         self.keroro.frame = (self.keroro.frame + 1) % SPRITE['idle']['frames']
+        self.frame = (self.frame + 1) % self.frame_count
 
     def draw(self):
         # lazy-load 보장
@@ -60,28 +87,67 @@ class Idle:
         draw_from_cfg(self.keroro.image, 'idle', self.keroro.frame,
                       self.keroro.face_dir, self.keroro.x, self.keroro.y)
 
+
+
+        if self.frame == 0:
+            self.keroro.image.clip_draw(4,   1544, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+        elif self.frame == 1:
+             self.keroro.image.clip_draw(67,  1544, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+        elif self.frame == 2:
+             self.keroro.image.clip_draw(132, 1544, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+        elif self.frame == 3:
+             self.keroro.image.clip_draw(198, 1544, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+
+
 class Run:
     def __init__(self, keroro):
         self.keroro = keroro
+        self.frame = 0
+        self.frame_count = 4
+        self.SPEED = 8  # 업데이트 한 번에 이동 픽셀 수 (필요시 조절)
 
     def enter(self, e):
-        if right_down(e) or left_up(e):
-            self.keroro.dir = self.keroro.face_dir = 1
-        elif left_down(e) or right_up(e):
-            self.keroro.dir = self.keroro.face_dir = -1
+        self.frame = 0
+        # 어떤 키로 Run에 들어왔는지 보고 진행 방향/얼굴 방향 결정
+        if e and e[0] == 'INPUT':
+            ev = e[1]
+            if ev.type == SDL_KEYDOWN:
+                if ev.key == SDLK_RIGHT:
+                    self.keroro.dir = 1
+                    self.keroro.face_dir = 1
+                elif ev.key == SDLK_LEFT:
+                    self.keroro.dir = -1
+                    self.keroro.face_dir = -1
 
-    def exit(self, e): pass
+    def exit(self, e):
+        pass  # 상태 전환 시 정지는 state_machine 쪽(up 이벤트)에서 처리
 
     def do(self):
-        self.keroro.frame = (self.keroro.frame + 1) % SPRITE['run']['frames']
-        self.keroro.x += self.keroro.dir * 5
+        # 애니메이션
+        self.frame = (self.frame + 1) % self.frame_count
+        # 이동
+        self.keroro.x += self.keroro.dir * self.SPEED
+        # 화면 경계 클램프 (값은 프로젝트 해상도에 맞게)
         self.keroro.x = max(25, min(775, self.keroro.x))
 
     def draw(self):
         # lazy-load 보장
         self.keroro._ensure_image()
-        draw_from_cfg(self.keroro.image, 'run', self.keroro.frame,
-                      self.keroro.face_dir, self.keroro.x, self.keroro.y)
+        draw_from_cfg(self.keroro.image, 'run', self.frame,
+                      self.keroro.face_dir, self.keroro.x, self.keroro.y,
+                      100, 100)
+        if self.keroro.dir == 1:
+            if self.frame == 0:
+                self.keroro.image.clip_draw(4,   1544, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+            elif self.frame == 1:
+                self.keroro.image.clip_draw(67,  1544, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+            elif self.frame == 2:
+                self.keroro.image.clip_draw(132, 1544, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+            elif self.frame == 3:
+                self.keroro.image.clip_draw(198, 1544, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+
+
+
 
 class AutoRun:
     def __init__(self, keroro):
@@ -134,9 +200,15 @@ class Keroro:
         self.state_machine = StateMachine(
             self.IDLE,
             {
-                self.IDLE:    {right_down: self.RUN, left_down: self.RUN, a_down: self.AUTORUN},
-                self.RUN:     {right_up:   self.IDLE, left_up:  self.IDLE, a_down: self.AUTORUN},
-                self.AUTORUN: {Time_out:   self.IDLE, right_down: self.RUN, left_down: self.RUN}
+                self.IDLE: {right_down: self.RUN, left_down: self.RUN, a_down: self.AUTORUN},
+                self.RUN: {
+                    right_up: self.IDLE,
+                    left_up: self.IDLE,
+                    right_down: self.RUN,  # ← 달리는 중 우측 키 다시 눌러도 즉시 우측으로
+                    left_down: self.RUN,  # ← 달리는 중 좌측 키 다시 눌러도 즉시 좌측으로
+                    a_down: self.AUTORUN
+                },
+                self.AUTORUN: {Time_out: self.IDLE, right_down: self.RUN, left_down: self.RUN}
             }
         )
 
