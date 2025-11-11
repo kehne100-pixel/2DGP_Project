@@ -7,7 +7,7 @@ start_time = 0.0
 
 def init():
     global image, start_time
-    image = load_image('Keroro_logo.png')   # 파일명은 프로젝트에 맞게
+    image = load_image('Keroro_logo.png')
     start_time = get_time()
 
 def finish():
@@ -15,14 +15,13 @@ def finish():
     del image
 
 def update():
-    # 로고 1.5초 보여주고 자동으로 타이틀로
-    if get_time() - start_time > 2.0:
+
+    if get_time() - start_time > 3.0:
         game_framework.change_mode(title_mode)
 
 def draw():
     clear_canvas()
-    # 화면 중앙에 그림 (원하면 꽉 채우기 로직으로 교체 가능)
-    image.draw(get_canvas_width()//2, get_canvas_height()//2)
+    image.draw(800, 450, 1600, 900)
     update_canvas()
 
 def handle_events():
@@ -37,6 +36,8 @@ def handle_events():
             elif e.key in (SDLK_SPACE, SDLK_RETURN):
                 game_framework.change_mode(title_mode)
 
-def pause(): pass
+def pause():
+    pass
 
-def resume(): pass
+def resume():
+    pass
