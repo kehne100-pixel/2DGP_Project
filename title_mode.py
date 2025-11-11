@@ -6,7 +6,7 @@ image = None
 
 def init():
     global image
-    image = load_image('title.png')
+    image = load_image('Keroro_title.png')
 
 def finish():
     global image
