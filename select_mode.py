@@ -1,55 +1,31 @@
 from pico2d import *
 import game_framework
-import play_mode
-import time, math, os
 
+# 이미지들
 background = None
 characters = []
-menu_index = 0
+selected_index = 0
 time_acc = 0.0
-previous_time = 0.0
-
-def get_frame_time():
-    global previous_time
-    current = time.time()
-    frame = current - previous_time
-    previous_time = current
-    return frame
-
 
 def init():
-    global background, characters, previous_time
-    print("[DEBUG] 현재 경로:", os.getcwd())
-
-    # 전체 해상도에 맞게 표시할 배경
+    global background, characters, selected_index
+    open_canvas(1600, 900)
     background = load_image('Keroro_select.png')
 
-    # 캐릭터 이미지들 로드
-    file_names = [
-        'Keroro_select(Dororo).png',
-        'Keroro_select(Tamama).png',
-        'Keroro_select(keroro).png',
-        'Keroro_select(giroro).png',
-        'Keroro_select(kururu).png'
-    ]
+    # 캐릭터 이름 순서대로
+    characters.append(('Dororo', 400, 650, 300, 300))
+    characters.append(('Tamama', 1200, 650, 300, 300))
+    characters.append(('Keroro', 800, 500, 300, 300))
+    characters.append(('Giroro', 1100, 250, 300, 300))
+    characters.append(('Kururu', 400, 250, 300, 300))
 
-    for f in file_names:
-        try:
-            characters.append(load_image(f))
-            print(f"✅ {f} 불러오기 성공")
-        except:
-            print(f"❌ {f} 파일을 찾을 수 없습니다.")
-            raise
-
-    previous_time = time.time()
+    selected_index = 0
 
 
 def finish():
     global background, characters
     del background
-    for c in characters:
-        del c
-    characters.clear()
+    del characters
 
 
 def update():
@@ -58,53 +34,47 @@ def update():
 
 
 def draw():
+    global selected_index
     clear_canvas()
 
-    # ✅ 배경을 해상도(1600x900)에 맞게 꽉 채우기
-    background.draw_to_origin(0, 0, 1600, 900)
+    # 배경 꽉 채우기
+    background.draw(800, 450, 1600, 900)
 
-    # ✅ 캐릭터별 실제 배경 위치 맞춤 좌표
-    positions = [
-        (370, 650, 380, 380),   # Dororo
-        (1220, 650, 370, 370),  # Tamama
-        (780, 470, 420, 420),   # Keroro (중앙)
-        (1220, 300, 420, 420),  # Giroro
-        (370, 250, 400, 400)    # Kururu
-    ]
-
-    for i, (x, y, w, h) in enumerate(positions):
-        img = characters[i]
-        if i == menu_index:
-            size_scale = 1.1 + 0.05 * math.sin(time_acc)
-            alpha = 0.7 + 0.3 * abs(math.sin(time_acc))
-            img.opacify(alpha)
-            img.draw(x, y, w * size_scale, h * size_scale)
-        else:
-            img.opacify(1.0)
-            img.draw(x, y, w, h)
+    # 각 캐릭터 위치 지정
+    for i, (name, x, y, w, h) in enumerate(characters):
+        scale = 1.0
+        if i == selected_index:
+            scale = 1.2 + 0.05 * sin(time_acc)
+        draw_rectangle(x - w//2, y - h//2, x + w//2, y + h//2)
+        # 확대 효과 표현용 더미 사각형 (위치 확인용)
+        # 실제로는 캐릭터 영역 효과 (Glow 등)에 맞게 수정 가능
+        # draw_rectangle을 제거하고 draw 효과를 여기에 추가 가능
 
     update_canvas()
 
 
 def handle_events():
-    global menu_index
+    global selected_index
     events = get_events()
     for e in events:
         if e.type == SDL_QUIT:
             game_framework.quit()
         elif e.type == SDL_KEYDOWN:
             if e.key == SDLK_ESCAPE:
-                import title_mode
-                game_framework.change_mode(title_mode)
-            elif e.key == SDLK_RIGHT:
-                menu_index = (menu_index + 1) % len(characters)
+                game_framework.quit()
             elif e.key == SDLK_LEFT:
-                menu_index = (menu_index - 1) % len(characters)
-            elif e.key == SDLK_RETURN or e.key == SDLK_SPACE:
-                selected = ["Dororo", "Tamama", "Keroro", "Giroro", "Kururu"][menu_index]
-                print(f"✅ {selected} 선택됨!")
-                game_framework.change_mode(play_mode)
+                if selected_index > 0:
+                    selected_index -= 1
+            elif e.key == SDLK_RIGHT:
+                if selected_index < len(characters) - 1:
+                    selected_index += 1
+            elif e.key == SDLK_RETURN:
+                print(f"{characters[selected_index][0]} 선택됨!")
 
 
-def pause(): pass
-def resume(): pass
+def pause():
+    pass
+
+
+def resume():
+    pass
