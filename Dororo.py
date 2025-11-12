@@ -78,22 +78,22 @@ class Idle:
 
         if self.Dororo.face_dir == 1:
             if self.frame == 0:
-                self.Dororo.image.clip_draw(0, 2881, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
+                self.Dororo.image.clip_draw(0, 2878, 50, 58, self.Dororo.x, self.Dororo.y, 100, 100)
             elif self.frame == 1:
-                self.Dororo.image.clip_draw(42, 2881, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
+                self.Dororo.image.clip_draw(50, 2878, 50, 58, self.Dororo.x, self.Dororo.y, 100, 100)
             elif self.frame == 2:
-                self.Dororo.image.clip_draw(85, 2881, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
+                self.Dororo.image.clip_draw(100, 2878, 50, 58, self.Dororo.x, self.Dororo.y, 100, 100)
             elif self.frame == 3:
-                self.Dororo.image.clip_draw(85, 2881, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
+                self.Dororo.image.clip_draw(150, 2878, 50, 58, self.Dororo.x, self.Dororo.y, 100, 100)
         else:
             if self.frame == 0:
-                self.Dororo.image.clip_composite_draw(0, 2881, 42, 49, 0, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
+                self.Dororo.image.clip_composite_draw(0, 2878, 50, 58, 0, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
             elif self.frame == 1:
-                self.Dororo.image.clip_composite_draw(42, 2881, 42, 49, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
+                self.Dororo.image.clip_composite_draw(43, 2878, 50, 58, 0, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
             elif self.frame == 2:
-                self.Dororo.image.clip_composite_draw(85, 2881, 42, 49, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
+                self.Dororo.image.clip_composite_draw(85, 2878, 50, 58, 0, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
             elif self.frame == 3:
-                self.Dororo.image.clip_composite_draw(85, 2881, 42, 49, 0, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
+                self.Dororo.image.clip_composite_draw(127, 2878, 50, 58, 0, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
 
 
 class Run:
@@ -129,13 +129,22 @@ class Run:
                       self.Dororo.face_dir, self.Dororo.x, self.Dororo.y, 100, 100)
         if self.Dororo.dir == 1:
             if self.frame == 0:
-                self.Dororo.image.clip_draw(0, 2710, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
+                self.Dororo.image.clip_draw(0, 2710, 50, 44, self.Dororo.x, self.Dororo.y, 100, 100)
             elif self.frame == 1:
-                self.Dororo.image.clip_draw(0, 2710, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
+                self.Dororo.image.clip_draw(52, 2710, 50, 44, self.Dororo.x, self.Dororo.y, 100, 100)
             elif self.frame == 2:
-                self.Dororo.image.clip_draw(0, 2710, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
+                self.Dororo.image.clip_draw(104, 2710, 50, 44, self.Dororo.x, self.Dororo.y, 100, 100)
             elif self.frame == 3:
-                self.Dororo.image.clip_draw(0, 2710, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
+                self.Dororo.image.clip_draw(156, 2710, 50, 44, self.Dororo.x, self.Dororo.y, 100, 100)
+        else:
+            if self.frame == 0:
+                self.Dororo.image.clip_composite_draw(0, 2710, 50, 44, 0, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
+            elif self.frame == 1:
+                self.Dororo.image.clip_composite_draw(52, 2710, 50, 44, 0, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
+            elif self.frame == 2:
+                self.Dororo.image.clip_composite_draw(104, 2710, 50, 44, 0, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
+            elif self.frame == 3:
+                self.Dororo.image.clip_composite_draw(156, 2710, 50, 44, 0, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
 
 
 class AutoRun:
@@ -162,8 +171,6 @@ class AutoRun:
                       DRAW_W + 8, DRAW_H + 8)
 
 
-# ---------------------------
-# 4) 본체 Dororo (이미지 lazy-load)
 # ---------------------------
 class Dororo:
     def __init__(self):
@@ -207,6 +214,3 @@ class Dororo:
 
     def handle_event(self, event):
         self.state_machine.handle_state_event(('INPUT', event))
-
-
-#Dororo = Dororo()
