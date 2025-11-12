@@ -19,7 +19,7 @@ def init():
     controls_image = load_image('logo_controls.png')
     exit_image = load_image('logo_exit.png')
     controls_key_image = load_image('controls_key.png')  # Controls 설명 이미지
-    select_image = load_image('Keroro_select.png')       # ✅ 캐릭터 선택창 이미지
+    select_image = load_image('Keroro_select.png')      
 
 
 def finish():
