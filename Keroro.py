@@ -67,36 +67,28 @@ class Idle:
         self.frame = 0
         self.frame_count = 4
 
-
     def enter(self, e):
         self.keroro.dir = 0
         self.keroro.wait_start_time = get_time()
         self.frame = 0
 
-
     def exit(self, e):
         pass
 
     def do(self):
-        self.keroro.frame = (self.keroro.frame + 1) % SPRITE['idle']['frames']
         self.frame = (self.frame + 1) % self.frame_count
 
     def draw(self):
-        # lazy-load 보장
         self.keroro._ensure_image()
-        draw_from_cfg(self.keroro.image, 'idle', self.keroro.frame,
-                      self.keroro.face_dir, self.keroro.x, self.keroro.y)
-
-
-
         if self.frame == 0:
-            self.keroro.image.clip_draw(4,   1544, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+            self.keroro.image.clip_draw(4, 1840, 60, 75, self.keroro.x, self.keroro.y, 100, 100)
         elif self.frame == 1:
-             self.keroro.image.clip_draw(67,  1544, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+            self.keroro.image.clip_draw(67, 1840, 60, 75, self.keroro.x, self.keroro.y, 100, 100)
         elif self.frame == 2:
-             self.keroro.image.clip_draw(132, 1544, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+            self.keroro.image.clip_draw(132, 1840, 60, 75, self.keroro.x, self.keroro.y, 100, 100)
         elif self.frame == 3:
-             self.keroro.image.clip_draw(198, 1544, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+            self.keroro.image.clip_draw(198, 1840, 60, 75, self.keroro.x, self.keroro.y, 100, 100)
+
 
 
 class Run:
