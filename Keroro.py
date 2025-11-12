@@ -68,6 +68,7 @@ class Idle:
         self.frame_count = 4
 
     def enter(self, e):
+        # 이동만 멈추고, 바라보는 방향은 그대로 유지
         self.keroro.dir = 0
         self.keroro.wait_start_time = get_time()
         self.frame = 0
@@ -80,14 +81,26 @@ class Idle:
 
     def draw(self):
         self.keroro._ensure_image()
-        if self.frame == 0:
-            self.keroro.image.clip_draw(4, 1840, 60, 75, self.keroro.x, self.keroro.y, 100, 100)
-        elif self.frame == 1:
-            self.keroro.image.clip_draw(67, 1840, 60, 75, self.keroro.x, self.keroro.y, 100, 100)
-        elif self.frame == 2:
-            self.keroro.image.clip_draw(132, 1840, 60, 75, self.keroro.x, self.keroro.y, 100, 100)
-        elif self.frame == 3:
-            self.keroro.image.clip_draw(198, 1840, 60, 75, self.keroro.x, self.keroro.y, 100, 100)
+
+        if self.keroro.face_dir == 1:
+            if self.frame == 0:
+                self.keroro.image.clip_draw(4, 1842, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+            elif self.frame == 1:
+                self.keroro.image.clip_draw(67, 1842, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+            elif self.frame == 2:
+                self.keroro.image.clip_draw(132, 1842, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+            elif self.frame == 3:
+                self.keroro.image.clip_draw(198, 1842, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
+        else:
+            if self.frame == 0:
+                self.keroro.image.clip_composite_draw(4, 1842, 60, 60, 0, 'h', self.keroro.x, self.keroro.y, 100, 100)
+            elif self.frame == 1:
+                self.keroro.image.clip_composite_draw(67, 1842, 60, 60, 0, 'h', self.keroro.x, self.keroro.y, 100, 100)
+            elif self.frame == 2:
+                self.keroro.image.clip_composite_draw(132, 1842, 60, 60, 0, 'h', self.keroro.x, self.keroro.y, 100, 100)
+            elif self.frame == 3:
+                self.keroro.image.clip_composite_draw(198, 1842, 60, 60, 0, 'h', self.keroro.x, self.keroro.y, 100, 100)
+
 
 
 
@@ -115,12 +128,9 @@ class Run:
         pass  # 상태 전환 시 정지는 state_machine 쪽(up 이벤트)에서 처리
 
     def do(self):
-        # 애니메이션
         self.frame = (self.frame + 1) % self.frame_count
-        # 이동
         self.keroro.x += self.keroro.dir * self.SPEED
-        # 화면 경계 클램프 (값은 프로젝트 해상도에 맞게)
-        self.keroro.x = max(25, min(775, self.keroro.x))
+        self.keroro.x = max(50, min(1550, self.keroro.x))  # 화면 전체 이동 허용
 
     def draw(self):
         # lazy-load 보장
@@ -156,13 +166,7 @@ class AutoRun:
     def do(self):
         self.keroro.frame = (self.keroro.frame + 1) % SPRITE['run']['frames']
         self.keroro.x += self.keroro.dir * 10
-        self.keroro.x = max(25, min(775, self.keroro.x))
-        if self.keroro.x <= 25:
-            self.keroro.dir = self.keroro.face_dir = 1
-        elif self.keroro.x >= 775:
-            self.keroro.dir = self.keroro.face_dir = -1
-        if get_time() - self.start_time > 5:
-            self.keroro.state_machine.handle_state_event(('TIME_OUT', 0))
+        self.keroro.x = max(50, min(1550, self.keroro.x))
 
     def draw(self):
         # lazy-load 보장
