@@ -23,7 +23,7 @@ def draw():
     clear_canvas()
     image.draw(800, 450, 1600, 900)
 
-    # ✅ 선택된 캐릭터 강조 (간단한 예: 테두리 사각형)
+
     x_positions = [320, 640, 960, 1280, 1600]
     if selected_index < len(x_positions):
         x = x_positions[selected_index]
@@ -47,7 +47,7 @@ def handle_events():
                 selected_index = (selected_index - 1) % 5
             elif event.key == SDLK_RETURN or event.key == SDLK_SPACE:
                 print(f"캐릭터 {selected_index} 선택됨")
-                game_framework.change_mode(play_mode)  # ✅ 캐릭터 선택 완료 후 play_mode로 이동
+                game_framework.change_mode(play_mode)
 
 
 def pause():
