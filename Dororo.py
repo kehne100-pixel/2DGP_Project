@@ -11,30 +11,94 @@ def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].
 def Time_out(e):   return e[0] == 'TIME_OUT'
 
 
+# ---------------------------
+# 2) 스프라이트 시트 설정
+# ---------------------------
+IMAGE_W, IMAGE_H = 996, 1917
+CELL_W, CELL_H   = 40, 80
+DRAW_W, DRAW_H   = 130, 130
+
+def row_y_from_top(row_from_top):
+    return IMAGE_H - (row_from_top + 1) * CELL_H
+
+
+SPRITE = {
+    'idle': {'row': 0, 'start_col': 0, 'frames': 4, 'flip_when_left': True},
+    'run': {
+        'rects': [
+            (4,   1544, 60, 60),
+            (67,  1544, 60, 60),
+            (132, 1544, 60, 60),
+            (198, 1544, 60, 60),
+        ],
+        'flip_when_left': True
+    },
+}
+
+
+def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=DRAW_H):
+    cfg = SPRITE[key]
+    if 'rects' in cfg:
+        sx, sy, sw, sh = cfg['rects'][frame_idx % len(cfg['rects'])]
+        if face_dir == -1 and cfg.get('flip_when_left', False):
+            image.clip_composite_draw(sx, sy, sw, sh, 0, 'h', x, y, draw_w, draw_h)
+        else:
+            image.clip_draw(sx, sy, sw, sh, x, y, draw_w, draw_h)
+        return
+    sx = (cfg['start_col'] + frame_idx) * CELL_W
+    sy = row_y_from_top(cfg['row'])
+    if face_dir == -1 and cfg.get('flip_when_left', False):
+        image.clip_composite_draw(sx, sy, CELL_W, CELL_H, 0, 'h', x, y, draw_w, draw_h)
+    else:
+        image.clip_draw(sx, sy, CELL_W, CELL_H, x, y, draw_w, draw_h)
+
+
+# ---------------------------
+# 3) 상태들: Idle / Run / AutoRun
+# ---------------------------
 class Idle:
-    def __init__(self, dororo):
-        self.dororo = dororo
+    def __init__(self, Dororo):
+        self.Dororo = Dororo
         self.frame = 0
         self.frame_count = 4
 
     def enter(self, e):
-        self.dororo.dir = 0
+        self.Dororo.dir = 0
+        self.Dororo.wait_start_time = get_time()
         self.frame = 0
 
-    def exit(self, e): pass
-    def do(self): self.frame = (self.frame + 1) % self.frame_count
+    def exit(self, e):
+        pass
+
+    def do(self):
+        self.frame = (self.frame + 1) % self.frame_count
 
     def draw(self):
-        self.dororo._ensure_image()
-        if self.dororo.face_dir == 1:
-            self.dororo.image.clip_draw(0, 0, 60, 60, self.dororo.x, self.dororo.y, 100, 100)
+        self.Dororo._ensure_image()
+
+        if self.Dororo.face_dir == 1:
+            if self.frame == 0:
+                self.Dororo.image.clip_draw(0, 2881, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
+            elif self.frame == 1:
+                self.Dororo.image.clip_draw(42, 2881, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
+            elif self.frame == 2:
+                self.Dororo.image.clip_draw(85, 2881, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
+            elif self.frame == 3:
+                self.Dororo.image.clip_draw(85, 2881, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
         else:
-            self.dororo.image.clip_composite_draw(0, 0, 60, 60, 0, 'h', self.dororo.x, self.dororo.y, 100, 100)
+            if self.frame == 0:
+                self.Dororo.image.clip_composite_draw(0, 2881, 42, 49, 0, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
+            elif self.frame == 1:
+                self.Dororo.image.clip_composite_draw(42, 2881, 42, 49, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
+            elif self.frame == 2:
+                self.Dororo.image.clip_composite_draw(85, 2881, 42, 49, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
+            elif self.frame == 3:
+                self.Dororo.image.clip_composite_draw(85, 2881, 42, 49, 0, 'h', self.Dororo.x, self.Dororo.y, 100, 100)
 
 
 class Run:
-    def __init__(self, dororo):
-        self.dororo = dororo
+    def __init__(self, Dororo):
+        self.Dororo = Dororo
         self.frame = 0
         self.frame_count = 4
         self.SPEED = 8
@@ -45,42 +109,88 @@ class Run:
             ev = e[1]
             if ev.type == SDL_KEYDOWN:
                 if ev.key == SDLK_RIGHT:
-                    self.dororo.dir = 1
-                    self.dororo.face_dir = 1
+                    self.Dororo.dir = 1
+                    self.Dororo.face_dir = 1
                 elif ev.key == SDLK_LEFT:
-                    self.dororo.dir = -1
-                    self.dororo.face_dir = -1
+                    self.Dororo.dir = -1
+                    self.Dororo.face_dir = -1
 
-    def exit(self, e): pass
+    def exit(self, e):
+        pass
+
     def do(self):
         self.frame = (self.frame + 1) % self.frame_count
-        self.dororo.x += self.dororo.dir * self.SPEED
-        self.dororo.x = max(50, min(1550, self.dororo.x))
+        self.Dororo.x += self.Dororo.dir * self.SPEED
+        self.Dororo.x = max(50, min(1550, self.Dororo.x))
 
     def draw(self):
-        self.dororo._ensure_image()
-        if self.dororo.face_dir == 1:
-            self.dororo.image.clip_draw(0, 0, 60, 60, self.dororo.x, self.dororo.y, 100, 100)
-        else:
-            self.dororo.image.clip_composite_draw(0, 0, 60, 60, 0, 'h', self.dororo.x, self.dororo.y, 100, 100)
+        self.Dororo._ensure_image()
+        draw_from_cfg(self.Dororo.image, 'run', self.frame,
+                      self.Dororo.face_dir, self.Dororo.x, self.Dororo.y, 100, 100)
+        if self.Dororo.dir == 1:
+            if self.frame == 0:
+                self.Dororo.image.clip_draw(0, 2710, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
+            elif self.frame == 1:
+                self.Dororo.image.clip_draw(0, 2710, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
+            elif self.frame == 2:
+                self.Dororo.image.clip_draw(0, 2710, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
+            elif self.frame == 3:
+                self.Dororo.image.clip_draw(0, 2710, 42, 49, self.Dororo.x, self.Dororo.y, 100, 100)
 
 
+class AutoRun:
+    def __init__(self, Dororo):
+        self.Dororo = Dororo
+
+    def enter(self, e):
+        self.start_time = get_time()
+        self.Dororo.dir = -1
+        self.Dororo.face_dir = -1
+
+    def exit(self, e):
+        self.Dororo.dir = 0
+
+    def do(self):
+        self.Dororo.frame = (self.Dororo.frame + 1) % SPRITE['run']['frames']
+        self.Dororo.x += self.Dororo.dir * 10
+        self.Dororo.x = max(50, min(1550, self.Dororo.x))
+
+    def draw(self):
+        self.Dororo._ensure_image()
+        draw_from_cfg(self.Dororo.image, 'run', self.Dororo.frame,
+                      self.Dororo.face_dir, self.Dororo.x, self.Dororo.y,
+                      DRAW_W + 8, DRAW_H + 8)
+
+
+# ---------------------------
+# 4) 본체 Dororo (이미지 lazy-load)
+# ---------------------------
 class Dororo:
     def __init__(self):
         self.x, self.y = 400, 90
         self.frame = 0
         self.face_dir = 1
         self.dir = 0
+
         self.image_name = 'Dororo_Sheet.png'
         self.image = None
 
         self.IDLE = Idle(self)
         self.RUN = Run(self)
+        self.AUTORUN = AutoRun(self)
+
         self.state_machine = StateMachine(
             self.IDLE,
             {
-                self.IDLE: {right_down: self.RUN, left_down: self.RUN},
-                self.RUN: {right_up: self.IDLE, left_up: self.IDLE}
+                self.IDLE: {right_down: self.RUN, left_down: self.RUN, a_down: self.AUTORUN},
+                self.RUN: {
+                    right_up: self.IDLE,
+                    left_up: self.IDLE,
+                    right_down: self.RUN,
+                    left_down: self.RUN,
+                    a_down: self.AUTORUN
+                },
+                self.AUTORUN: {Time_out: self.IDLE, right_down: self.RUN, left_down: self.RUN}
             }
         )
 
@@ -88,9 +198,15 @@ class Dororo:
         if self.image is None:
             self.image = load_image(self.image_name)
 
-    def update(self): self.state_machine.update()
-    def draw(self): self._ensure_image(); self.state_machine.draw()
-    def handle_event(self, event): self.state_machine.handle_state_event(('INPUT', event))
+    def update(self):
+        self.state_machine.update()
+
+    def draw(self):
+        self._ensure_image()
+        self.state_machine.draw()
+
+    def handle_event(self, event):
+        self.state_machine.handle_state_event(('INPUT', event))
 
 
-dororo = Dororo()
+#Dororo = Dororo()
