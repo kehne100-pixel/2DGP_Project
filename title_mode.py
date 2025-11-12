@@ -6,7 +6,7 @@ image = None
 start_image = None
 exit_image = None
 controls_image = None
-controls_key_image = None   # ✅ 키 설명 이미지
+controls_key_image = None
 
 menu_index = 0  # 0: Start, 1: Controls, 2: Exit
 
@@ -16,7 +16,7 @@ def init():
     start_image = load_image('logo_start.png')
     controls_image = load_image('logo_controls.png')
     exit_image = load_image('logo_exit.png')
-    controls_key_image = load_image('controls_key.png')  # ✅ 추가
+    controls_key_image = load_image('controls_key.png')
 
 
 def finish():
@@ -45,7 +45,6 @@ def draw():
     # Controls
     if menu_index == 1:
         controls_image.draw(800, 300, big_w, big_h)
-        # ✅ 선택 시 오른쪽 아래에 키 설명 이미지 표시
         controls_key_image.draw(1350, 150, 400, 250)
     else:
         controls_image.draw(800, 300, normal_w, normal_h)
@@ -76,7 +75,7 @@ def handle_events():
                 if menu_index == 0:
                     game_framework.change_mode(play_mode)
                 elif menu_index == 1:
-                    print("Controls 선택됨")
+                    print("Controls 선택")
                 elif menu_index == 2:
                     game_framework.quit()
 
