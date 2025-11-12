@@ -7,7 +7,7 @@ start_image = None
 exit_image = None
 controls_image = None
 controls_key_image = None
-select_image = None  # ✅ 캐릭터 선택창 이미지 추가
+select_image = None  
 
 menu_index = 0  # 0: Start, 1: Controls, 2: Exit
 
@@ -19,7 +19,7 @@ def init():
     controls_image = load_image('logo_controls.png')
     exit_image = load_image('logo_exit.png')
     controls_key_image = load_image('controls_key.png')  # Controls 설명 이미지
-    select_image = load_image('Keroro_select.png')      
+    select_image = load_image('Keroro_select.png')
 
 
 def finish():
