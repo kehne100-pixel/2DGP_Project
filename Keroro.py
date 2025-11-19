@@ -1,5 +1,5 @@
 from pico2d import *
-from sdl2 import SDL_KEYDOWN, SDL_KEYUP, SDLK_RIGHT, SDLK_LEFT, SDLK_a, SDLK_s
+from sdl2 import SDL_KEYDOWN, SDL_KEYUP, SDLK_RIGHT, SDLK_LEFT, SDLK_a, SDLK_s, SDLK_d
 import game_framework
 from state_machine import StateMachine
 
@@ -10,12 +10,13 @@ def left_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].
 def left_up(e):    return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_LEFT
 def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a
 def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s
+def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d
 def Time_out(e):   return e[0] == 'TIME_OUT'
 def attack_done_idle(e): return e[0] == 'ATTACK_DONE_IDLE'
 def attack_done_run(e):  return e[0] == 'ATTACK_DONE_RUN'
 
 
-# ---------------------------
+
 IMAGE_W, IMAGE_H = 996, 1917
 CELL_W, CELL_H   = 40, 80
 DRAW_W, DRAW_H   = 130, 130
@@ -51,11 +52,24 @@ SPRITE = {
 
     'attack': {
         'rects': [
-            (4,   1226, 61, 80),
-            (65,  1226, 61, 80),
-            (138, 1226, 61, 80),
+            (4,   1228, 61, 80),
+            (65,  1228, 61, 80),
+            (138, 1228, 61, 80),
         ],
         'frames': 3,
+        'flip_when_left': True
+    },
+
+
+    'attack2': {
+        'rects': [
+            (187, 1226, 61, 80),
+            (248, 1223, 61, 80),
+            (303, 1223, 61, 80),
+
+
+        ],
+        'frames': 3,            # ← 나중에 rect 개수에 맞게 수정 (예: 3)
         'flip_when_left': True
     },
 }
@@ -65,6 +79,7 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
     cfg = SPRITE[key]
 
     if 'rects' in cfg:
+        frame_idx = int(frame_idx)  # float 방지
         sx, sy, sw, sh = cfg['rects'][frame_idx % len(cfg['rects'])]
         if face_dir == -1 and cfg.get('flip_when_left', False):
             image.clip_composite_draw(sx, sy, sw, sh, 0, 'h', x, y, draw_w, draw_h)
@@ -192,48 +207,133 @@ class AutoRun:
 class Attack:
     def __init__(self, keroro):
         self.keroro = keroro
-        self.frame = 0
+        self.frame = 0.0
         self.frame_count = SPRITE['attack']['frames']
-        self.SPEED = 8       # 달리면서 공격할 때 속도
-        self.move_during_attack = False  # 공격 중 이동할지 여부
+
+        self.SPEED = 8
+        self.move_during_attack = False
+
+        self.anim_speed = 0.2
+        self.finished = False
+
+        self.hold_time = 0.15
+        self.hold_timer = 0.0
 
     def enter(self, e):
-        self.frame = 0
-        # 공격 시작 시점에 움직이고 있던 상태인지 기억
+        """Attack 상태로 들어올 때 한 번 호출."""
+        self.frame = 0.0
+        self.finished = False
+        self.hold_timer = 0.0
+
+        # 공격 시작할 때 캐릭터가 움직이는 중이었는지 기억
         self.move_during_attack = (self.keroro.dir != 0)
 
     def exit(self, e):
         pass
 
     def do(self):
-        # 공격 애니메이션 프레임 진행
-        self.frame += 0.5
+        if not self.finished:
+            # 공격 애니메이션 재생 구간
+            self.frame += self.anim_speed  # 숫자 줄이면 더 느리게, 늘이면 더 빠르게
 
-        # 달리는 중에 공격이면 계속 이동
-        if self.move_during_attack:
-            self.keroro.x += self.keroro.dir * self.SPEED
-            self.keroro.x = max(50, min(1550, self.keroro.x))
-
-        # 공격 애니메이션 끝났을 때
-        if self.frame >= self.frame_count:
-            self.frame = self.frame_count - 1
+            # 공격 중 이동(달리던 상태에서 공격 시작한 경우)
             if self.move_during_attack:
-                # 달리던 중에 공격 → 다시 Run 으로
-                self.keroro.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-            else:
-                # Idle 상태에서 공격 → 다시 Idle 로
-                self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.keroro.x += self.keroro.dir * self.SPEED
+                self.keroro.x = max(50, min(1550, self.keroro.x))
+
+            # 마지막 프레임에 도달했는지 체크
+            if self.frame >= self.frame_count:
+                self.frame = self.frame_count - 1  # 마지막 프레임에 고정
+                self.finished = True               # 이제부터는 hold 단계로
+        else:
+            # 마지막 프레임 유지 구간
+            self.hold_timer += game_framework.frame_time
+
+            if self.hold_timer >= self.hold_time:
+                # hold 시간이 다 지나면 그제서야 상태 전환
+                if self.move_during_attack:
+                    # 달리던 중 공격 → Run 으로
+                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
+                else:
+                    # Idle 중 공격 → Idle 로
+                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
+        """현재 attack 프레임을 그린다."""
         self.keroro._ensure_image()
-        # 인덱스는 정수로
-        idx = int(min(self.frame, self.frame_count - 1))
+        idx = int(self.frame)  # 안전하게 정수로
 
         draw_from_cfg(
             self.keroro.image,
             'attack',
             idx,
-            self.keroro.face_dir,  # ★ 오타 수정: face_diss → face_dir
+            self.keroro.face_dir,
+            self.keroro.x,
+            self.keroro.y,
+            100, 100
+        )
+
+
+# ★ Attack2 : Attack 과 같은 구조, 다른 스프라이트 키와 속도만 다르게 쓸 수 있음
+class Attack2:
+    def __init__(self, keroro):
+        self.keroro = keroro
+        self.frame = 0.0
+        self.frame_count = SPRITE['attack2']['frames']
+
+        self.SPEED = 8                 # 필요하면 Attack 과 다르게 조절 가능
+        self.move_during_attack = False
+
+        self.anim_speed = 0.2          # Attack2 전용 속도 (원하면 다르게)
+        self.finished = False
+
+        self.hold_time = 0.15          # 마지막 프레임 유지 시간
+        self.hold_timer = 0.0
+
+    def enter(self, e):
+        """Attack2 상태로 들어올 때 한 번 호출."""
+        self.frame = 0.0
+        self.finished = False
+        self.hold_timer = 0.0
+
+        # 공격 시작할 때 캐릭터가 움직이는 중이었는지 기억
+        self.move_during_attack = (self.keroro.dir != 0)
+
+    def exit(self, e):
+        pass
+
+    def do(self):
+        if not self.finished:
+            # Attack2 애니메이션 재생 구간
+            self.frame += self.anim_speed
+
+            if self.move_during_attack:
+                self.keroro.x += self.keroro.dir * self.SPEED
+                self.keroro.x = max(50, min(1550, self.keroro.x))
+
+            if self.frame >= self.frame_count:
+                self.frame = self.frame_count - 1
+                self.finished = True
+        else:
+            # 마지막 프레임 유지 구간
+            self.hold_timer += game_framework.frame_time
+
+            if self.hold_timer >= self.hold_time:
+                if self.move_during_attack:
+                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
+                else:
+                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+
+    def draw(self):
+        """현재 attack2 프레임을 그린다."""
+        self.keroro._ensure_image()
+        idx = int(self.frame)
+
+        draw_from_cfg(
+            self.keroro.image,
+            'attack2',
+            idx,
+            self.keroro.face_dir,
             self.keroro.x,
             self.keroro.y,
             100, 100
@@ -256,6 +356,7 @@ class Keroro:
         self.RUN     = Run(self)
         self.AUTORUN = AutoRun(self)
         self.ATTACK  = Attack(self)
+        self.ATTACK2 = Attack2(self)   # ★ Attack2 상태 추가
 
         self.state_machine = StateMachine(
             self.IDLE,
@@ -265,7 +366,8 @@ class Keroro:
                     right_down: self.RUN,
                     left_down:  self.RUN,
                     a_down:     self.AUTORUN,
-                    s_down:     self.ATTACK,   # S → Attack
+                    s_down:     self.ATTACK,    # S → Attack
+                    d_down:     self.ATTACK2,   # D → Attack2
                 },
 
                 self.RUN: {
@@ -274,7 +376,8 @@ class Keroro:
                     right_down: self.RUN,
                     left_down:  self.RUN,
                     a_down:     self.AUTORUN,
-                    s_down:     self.ATTACK,   # 달리는 중에도 S → Attack
+                    s_down:     self.ATTACK,    # 달리는 중 S → Attack
+                    d_down:     self.ATTACK2,   # 달리는 중 D → Attack2
                 },
 
                 # AutoRun 상태에서
@@ -283,11 +386,19 @@ class Keroro:
                     right_down: self.RUN,
                     left_down:  self.RUN,
                     s_down:     self.ATTACK,
+                    d_down:     self.ATTACK2,
                 },
 
+                # Attack 이 끝나면 Idle/Run 으로
                 self.ATTACK: {
-                    attack_done_idle: self.IDLE,  # Idle 에서 공격 → 다시 Idle
-                    attack_done_run:  self.RUN,   # Run 중 공격 → 다시 Run
+                    attack_done_idle: self.IDLE,
+                    attack_done_run:  self.RUN,
+                },
+
+                # Attack2 가 끝나도 Idle/Run 으로 (같은 이벤트 재사용)
+                self.ATTACK2: {
+                    attack_done_idle: self.IDLE,
+                    attack_done_run:  self.RUN,
                 },
 
             }
