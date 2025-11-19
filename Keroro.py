@@ -1,5 +1,6 @@
-from pico2d import load_image, get_time
+from pico2d import *
 from sdl2 import SDL_KEYDOWN, SDL_KEYUP, SDLK_RIGHT, SDLK_LEFT, SDLK_a, SDLK_s
+import game_framework
 from state_machine import StateMachine
 
 
@@ -14,7 +15,6 @@ def attack_done_idle(e): return e[0] == 'ATTACK_DONE_IDLE'
 def attack_done_run(e):  return e[0] == 'ATTACK_DONE_RUN'
 
 
-
 # ---------------------------
 IMAGE_W, IMAGE_H = 996, 1917
 CELL_W, CELL_H   = 40, 80
@@ -25,8 +25,18 @@ def row_y_from_top(row_from_top):
     return IMAGE_H - (row_from_top + 1) * CELL_H
 
 
+
 SPRITE = {
-    'idle': {'row': 0, 'start_col': 0, 'frames': 4, 'flip_when_left': True},
+    'idle': {
+        'rects': [
+            (4,   1842, 60, 60),
+            (67,  1842, 60, 60),
+            (132, 1842, 60, 60),
+            (198, 1842, 60, 60),
+        ],
+        'frames': 4,
+        'flip_when_left': True
+    },
 
     'run': {
         'rects': [
@@ -39,15 +49,12 @@ SPRITE = {
         'flip_when_left': True
     },
 
-
     'attack': {
         'rects': [
-             (4, 1226, 61, 80),
-             (65, 1226, 61, 80),
-             (138, 1226, 61, 80),
-
+            (4,   1226, 61, 80),
+            (65,  1226, 61, 80),
+            (138, 1226, 61, 80),
         ],
-
         'frames': 3,
         'flip_when_left': True
     },
@@ -73,46 +80,42 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
         image.clip_draw(sx, sy, CELL_W, CELL_H, x, y, draw_w, draw_h)
 
 
-# ---------------------------
+idle_time_per_action = 0.5
+idle_action_per_time = 1.0 / idle_time_per_action
+idle_frames_per_action = 4
+idle_frame_per_second = idle_frames_per_action * idle_action_per_time
+
 
 class Idle:
     def __init__(self, keroro):
         self.keroro = keroro
-        self.frame = 0
-        self.frame_count = 4
+        self.frame = 0.0
+        self.frame_count = SPRITE['idle']['frames']
 
     def enter(self, e):
         self.keroro.dir = 0
         self.keroro.wait_start_time = get_time()
-        self.frame = 0
+        self.frame = 0.0
 
     def exit(self, e):
         pass
 
     def do(self):
-        self.frame = (self.frame + 1) % self.frame_count
+        self.frame = (self.frame + idle_frame_per_second * game_framework.frame_time) % self.frame_count
 
     def draw(self):
         self.keroro._ensure_image()
+        idx = int(self.frame) % self.frame_count
 
-        if self.keroro.face_dir == 1:
-            if self.frame == 0:
-                self.keroro.image.clip_draw(4, 1842, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
-            elif self.frame == 1:
-                self.keroro.image.clip_draw(67, 1842, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
-            elif self.frame == 2:
-                self.keroro.image.clip_draw(132, 1842, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
-            elif self.frame == 3:
-                self.keroro.image.clip_draw(198, 1842, 60, 60, self.keroro.x, self.keroro.y, 100, 100)
-        else:
-            if self.frame == 0:
-                self.keroro.image.clip_composite_draw(4, 1842, 60, 60, 0, 'h', self.keroro.x, self.keroro.y, 100, 100)
-            elif self.frame == 1:
-                self.keroro.image.clip_composite_draw(67, 1842, 60, 60, 0, 'h', self.keroro.x, self.keroro.y, 100, 100)
-            elif self.frame == 2:
-                self.keroro.image.clip_composite_draw(132, 1842, 60, 60, 0, 'h', self.keroro.x, self.keroro.y, 100, 100)
-            elif self.frame == 3:
-                self.keroro.image.clip_composite_draw(198, 1842, 60, 60, 0, 'h', self.keroro.x, self.keroro.y, 100, 100)
+        draw_from_cfg(
+            self.keroro.image,
+            'idle',
+            idx,
+            self.keroro.face_dir,
+            self.keroro.x,
+            self.keroro.y,
+            100, 100
+        )
 
 
 class Run:
@@ -195,21 +198,18 @@ class Attack:
         self.move_during_attack = False  # 공격 중 이동할지 여부
 
     def enter(self, e):
-        # 공격 시작 시 프레임 초기화
         self.frame = 0
-        # 현재 방향 유지
-        # 지금 dir 이 0 이면 (Idle) 제자리 공격,
-        # 0이 아니면 (Run/AutoRun) 달리면서 공격
+        # 공격 시작 시점에 움직이고 있던 상태인지 기억
         self.move_during_attack = (self.keroro.dir != 0)
 
     def exit(self, e):
         pass
 
     def do(self):
-        # 프레임 진행
-        self.frame += 1
+        # 공격 애니메이션 프레임 진행
+        self.frame += 0.5
 
-        # 달리면서 공격해야 하는 경우에만 이동
+        # 달리는 중에 공격이면 계속 이동
         if self.move_during_attack:
             self.keroro.x += self.keroro.dir * self.SPEED
             self.keroro.x = max(50, min(1550, self.keroro.x))
@@ -226,18 +226,18 @@ class Attack:
 
     def draw(self):
         self.keroro._ensure_image()
-        idx = min(self.frame, self.frame_count - 1)
+        # 인덱스는 정수로
+        idx = int(min(self.frame, self.frame_count - 1))
 
         draw_from_cfg(
             self.keroro.image,
             'attack',
             idx,
-            self.keroro.face_dir,
+            self.keroro.face_dir,  # ★ 오타 수정: face_diss → face_dir
             self.keroro.x,
             self.keroro.y,
             100, 100
         )
-
 
 
 # ---------------------------
@@ -268,7 +268,6 @@ class Keroro:
                     s_down:     self.ATTACK,   # S → Attack
                 },
 
-
                 self.RUN: {
                     right_up:   self.IDLE,
                     left_up:    self.IDLE,
@@ -288,7 +287,7 @@ class Keroro:
 
                 self.ATTACK: {
                     attack_done_idle: self.IDLE,  # Idle 에서 공격 → 다시 Idle
-                    attack_done_run: self.RUN,  # Run 중 공격 → 다시 Run
+                    attack_done_run:  self.RUN,   # Run 중 공격 → 다시 Run
                 },
 
             }
