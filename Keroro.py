@@ -434,7 +434,7 @@ class Guard:
         )
 
 
-# Jump 상태 (상승)
+
 class Jump:
 
     def __init__(self, keroro):
@@ -443,28 +443,28 @@ class Jump:
         self.frame_count = SPRITE['jump']['frames']
         self.anim_speed = 0.2
 
-        self.JUMP_POWER = 18.0
-        self.GRAVITY    = -1.2
+        self.JUMP_POWER = 18
+        self.GRAVITY    = -0.5
 
     def enter(self, e):
         self.frame = 0.0
         self.frame_count = SPRITE['jump']['frames']
 
-        # 점프 시작 속도
+
         self.keroro.vy = self.JUMP_POWER
 
     def exit(self, e):
         pass
 
     def do(self):
-        # 애니메이션
+
         self.frame = (self.frame + self.anim_speed) % self.frame_count
 
-        # 수직 이동 + 중력
+
         self.keroro.y += self.keroro.vy
         self.keroro.vy += self.GRAVITY
 
-        # 최고점 지나면 Fall로 전환
+
         if self.keroro.vy <= 0:
             self.keroro.state_machine.handle_state_event(('JUMP_TO_FALL', None))
 
@@ -492,7 +492,7 @@ class Fall:
         self.frame_count = SPRITE['fall']['frames']
         self.anim_speed = 0.25
 
-        self.GRAVITY = -1.2
+        self.GRAVITY = -0.05
 
     def enter(self, e):
         self.frame = 0.0
