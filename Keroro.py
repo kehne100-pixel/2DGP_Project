@@ -1,23 +1,43 @@
 from pico2d import *
-from sdl2 import SDL_KEYDOWN, SDL_KEYUP, SDLK_RIGHT, SDLK_LEFT, SDLK_a, SDLK_s, SDLK_d
+from sdl2 import (
+    SDL_KEYDOWN, SDL_KEYUP,
+    SDLK_RIGHT, SDLK_LEFT,
+    SDLK_a, SDLK_s, SDLK_d,
+    SDLK_SPACE
+)
 import game_framework
 from state_machine import StateMachine
 
 
+# ---------------------------
+# 이벤트 판별 함수
+# ---------------------------
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
 def right_up(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_RIGHT
 def left_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_LEFT
 def left_up(e):    return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_LEFT
-def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a   # A 누를 때
-def a_up(e):       return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_a   # A 뗄 때
-def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s
-def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d
+
+def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a   # Guard 시작
+def a_up(e):       return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_a   # Guard 해제
+
+def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s   # Attack
+def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d   # Attack2
+
+def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE  # ★ 점프
+
 def Time_out(e):   return e[0] == 'TIME_OUT'
 def attack_done_idle(e): return e[0] == 'ATTACK_DONE_IDLE'
 def attack_done_run(e):  return e[0] == 'ATTACK_DONE_RUN'
 
+# 점프/하강 상태 전환용 이벤트
+def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'   # Jump → Fall
+def land_idle(e):    return e[0] == 'LAND_IDLE'      # Fall → Idle
+def land_run(e):     return e[0] == 'LAND_RUN'       # Fall → Run
 
 
+# ---------------------------
+# 스프라이트 설정
+# ---------------------------
 IMAGE_W, IMAGE_H = 996, 1917
 CELL_W, CELL_H   = 40, 80
 DRAW_W, DRAW_H   = 130, 130
@@ -25,7 +45,6 @@ DRAW_W, DRAW_H   = 130, 130
 
 def row_y_from_top(row_from_top):
     return IMAGE_H - (row_from_top + 1) * CELL_H
-
 
 
 SPRITE = {
@@ -71,17 +90,36 @@ SPRITE = {
         'flip_when_left': True
     },
 
-
+    # Guard 모션
     'guard': {
         'rects': [
-
+            # (sx, sy, sw, sh)  ← 네가 실제 가드 프레임 좌표로 수정
             (0, 0, 60, 60),
         ],
         'frames': 1,
         'flip_when_left': True
     },
-}
 
+    # ★ Jump 모션
+    'jump': {
+        'rects': [
+            # (sx, sy, sw, sh)  ← 점프(상승) 프레임들 좌표를 네가 채우기
+            (0, 0, 60, 60),
+        ],
+        'frames': 1,      # 실제 점프 프레임 개수로 수정
+        'flip_when_left': True
+    },
+
+    # ★ Fall 모션
+    'fall': {
+        'rects': [
+            # (sx, sy, sw, sh)  ← 하강 프레임들 좌표를 네가 채우기
+            (0, 0, 60, 60),
+        ],
+        'frames': 1,      # 실제 하강 프레임 개수로 수정
+        'flip_when_left': True
+    },
+}
 
 
 def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=DRAW_H):
@@ -104,12 +142,18 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
         image.clip_draw(sx, sy, CELL_W, CELL_H, x, y, draw_w, draw_h)
 
 
+# ---------------------------
+# Idle 애니메이션 타이밍
+# ---------------------------
 idle_time_per_action = 0.5
 idle_action_per_time = 1.0 / idle_time_per_action
 idle_frames_per_action = 4
 idle_frame_per_second = idle_frames_per_action * idle_action_per_time
 
 
+# ---------------------------
+# 상태 클래스들
+# ---------------------------
 class Idle:
     def __init__(self, keroro):
         self.keroro = keroro
@@ -229,12 +273,11 @@ class Attack:
         self.hold_timer = 0.0
 
     def enter(self, e):
-
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
 
-        # 공격 시작할 때 캐릭터가 움직이는 중이었는지 기억
+        # 공격 시작할 때 움직이는 중이었는지 저장
         self.move_during_attack = (self.keroro.dir != 0)
 
     def exit(self, e):
@@ -242,35 +285,31 @@ class Attack:
 
     def do(self):
         if not self.finished:
-            # 공격 애니메이션 재생 구간
-            self.frame += self.anim_speed  # 숫자 줄이면 더 느리게, 늘이면 더 빠르게
+            # 공격 애니메이션 재생
+            self.frame += self.anim_speed
 
-            # 공격 중 이동(달리던 상태에서 공격 시작한 경우)
+            # 달리던 중 공격이면 계속 이동
             if self.move_during_attack:
                 self.keroro.x += self.keroro.dir * self.SPEED
                 self.keroro.x = max(50, min(1550, self.keroro.x))
 
-            # 마지막 프레임에 도달했는지 체크
+            # 마지막 프레임 도달 체크
             if self.frame >= self.frame_count:
-                self.frame = self.frame_count - 1  # 마지막 프레임에 고정
-                self.finished = True               # 이제부터는 hold 단계로
+                self.frame = self.frame_count - 1
+                self.finished = True
         else:
-            # 마지막 프레임 유지 구간
+            # 마지막 프레임 홀드
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                # hold 시간이 다 지나면 그제서야 상태 전환
                 if self.move_during_attack:
-                    # 달리던 중 공격 → Run 으로
                     self.keroro.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
                 else:
-                    # Idle 중 공격 → Idle 로
                     self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
-
         self.keroro._ensure_image()
-        idx = int(self.frame)  # 안전하게 정수로
+        idx = int(self.frame)
 
         draw_from_cfg(
             self.keroro.image,
@@ -289,22 +328,20 @@ class Attack2:
         self.frame = 0.0
         self.frame_count = SPRITE['attack2']['frames']
 
-        self.SPEED = 8                 # 필요하면 Attack 과 다르게 조절 가능
+        self.SPEED = 8
         self.move_during_attack = False
 
-        self.anim_speed = 0.4          # Attack2 전용 속도 (원하면 다르게)
+        self.anim_speed = 0.4
         self.finished = False
 
-        self.hold_time = 0.15          # 마지막 프레임 유지 시간
+        self.hold_time = 0.15
         self.hold_timer = 0.0
 
     def enter(self, e):
-
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
 
-        # 공격 시작할 때 캐릭터가 움직이는 중이었는지 기억
         self.move_during_attack = (self.keroro.dir != 0)
 
     def exit(self, e):
@@ -312,7 +349,6 @@ class Attack2:
 
     def do(self):
         if not self.finished:
-            # Attack2 애니메이션 재생 구간
             self.frame += self.anim_speed
 
             if self.move_during_attack:
@@ -323,7 +359,6 @@ class Attack2:
                 self.frame = self.frame_count - 1
                 self.finished = True
         else:
-            # 마지막 프레임 유지 구간
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
@@ -333,11 +368,10 @@ class Attack2:
                     self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
-
         self.keroro._ensure_image()
         idx = int(self.frame)
+
         if self.keroro.face_dir == -1:
-            # 왼쪽을 향할 때는 약간 위치 조정
             draw_from_cfg(
                 self.keroro.image,
                 'attack2',
@@ -359,26 +393,26 @@ class Attack2:
             )
 
 
-
+# Guard 상태
 class Guard:
-
+    """
+    A 키를 누르고 있는 동안 가드 자세 유지
+    """
     def __init__(self, keroro):
         self.keroro = keroro
         self.frame = 0.0
         self.frame_count = SPRITE['guard']['frames']
-        self.anim_speed = 0.15  # 가드 애니메이션 속도
+        self.anim_speed = 0.15
 
     def enter(self, e):
         self.frame = 0.0
         self.frame_count = SPRITE['guard']['frames']
-
-        self.keroro.dir = 0
+        self.keroro.dir = 0  # 가드 중엔 이동 안 함
 
     def exit(self, e):
         pass
 
     def do(self):
-        # 계속 루프 도는 가드 애니메이션
         self.frame = (self.frame + self.anim_speed) % self.frame_count
 
     def draw(self):
@@ -396,9 +430,119 @@ class Guard:
         )
 
 
+# Jump 상태 (상승)
+class Jump:
+    """
+    스페이스바 누르면 진입하는 점프(상승) 상태
+    - Idle, Run 에서 Space 누르면 Jump
+    - vy > 0 동안 위로 이동
+    - vy <= 0 되면 JUMP_TO_FALL 이벤트 발생 → Fall 상태로 전환
+    """
+    def __init__(self, keroro):
+        self.keroro = keroro
+        self.frame = 0.0
+        self.frame_count = SPRITE['jump']['frames']
+        self.anim_speed = 0.2
+
+        self.JUMP_POWER = 18.0
+        self.GRAVITY    = -1.2
+
+    def enter(self, e):
+        self.frame = 0.0
+        self.frame_count = SPRITE['jump']['frames']
+
+        # 점프 시작 속도
+        self.keroro.vy = self.JUMP_POWER
+
+    def exit(self, e):
+        pass
+
+    def do(self):
+        # 애니메이션
+        self.frame = (self.frame + self.anim_speed) % self.frame_count
+
+        # 수직 이동 + 중력
+        self.keroro.y += self.keroro.vy
+        self.keroro.vy += self.GRAVITY
+
+        # 최고점 지나면 Fall로 전환
+        if self.keroro.vy <= 0:
+            self.keroro.state_machine.handle_state_event(('JUMP_TO_FALL', None))
+
+    def draw(self):
+        self.keroro._ensure_image()
+        idx = int(self.frame) % self.frame_count
+
+        draw_from_cfg(
+            self.keroro.image,
+            'jump',
+            idx,
+            self.keroro.face_dir,
+            self.keroro.x,
+            self.keroro.y,
+            100, 100
+        )
+
+
+# Fall 상태 (하강)
+class Fall:
+    """
+    Jump 최고점 이후 하강 상태
+    - Jump 에서 JUMP_TO_FALL 이벤트로 진입
+    - y <= ground_y 되면 착지 → Idle 또는 Run 으로 복귀
+    """
+    def __init__(self, keroro):
+        self.keroro = keroro
+        self.frame = 0.0
+        self.frame_count = SPRITE['fall']['frames']
+        self.anim_speed = 0.25
+
+        self.GRAVITY = -1.2
+
+    def enter(self, e):
+        self.frame = 0.0
+        self.frame_count = SPRITE['fall']['frames']
+
+    def exit(self, e):
+        pass
+
+    def do(self):
+        # 애니메이션
+        self.frame = (self.frame + self.anim_speed) % self.frame_count
+
+        # 수직 이동 + 중력
+        self.keroro.y += self.keroro.vy
+        self.keroro.vy += self.GRAVITY
+
+        # 바닥 도착 체크
+        if self.keroro.y <= self.keroro.ground_y:
+            self.keroro.y = self.keroro.ground_y
+            self.keroro.vy = 0
+
+            # 움직이고 있으면 Run, 아니면 Idle로 착지
+            if self.keroro.dir != 0:
+                self.keroro.state_machine.handle_state_event(('LAND_RUN', None))
+            else:
+                self.keroro.state_machine.handle_state_event(('LAND_IDLE', None))
+
+    def draw(self):
+        self.keroro._ensure_image()
+        idx = int(self.frame) % self.frame_count
+
+        draw_from_cfg(
+            self.keroro.image,
+            'fall',
+            idx,
+            self.keroro.face_dir,
+            self.keroro.x,
+            self.keroro.y,
+            100, 100
+        )
+
 
 # ---------------------------
-
+# Keroro 본체
+# ---------------------------
 class Keroro:
     def __init__(self):
         self.x, self.y = 400, 90
@@ -406,68 +550,87 @@ class Keroro:
         self.face_dir = 1
         self.dir = 0
 
+        # 점프/하강 물리값
+        self.vy = 0.0
+        self.ground_y = 90   # 바닥 높이
+
         self.image_name = 'Keroro_Sheet.png'
         self.image = None
 
+        # 상태 인스턴스
         self.IDLE    = Idle(self)
         self.RUN     = Run(self)
         self.AUTORUN = AutoRun(self)
         self.ATTACK  = Attack(self)
         self.ATTACK2 = Attack2(self)
-        self.GUARD   = Guard(self)     # ★ Guard 상태 추가
+        self.GUARD   = Guard(self)
+        self.JUMP    = Jump(self)
+        self.FALL    = Fall(self)
 
+        # 상태 머신 구성
         self.state_machine = StateMachine(
             self.IDLE,
             {
 
                 # Idle 상태
                 self.IDLE: {
-                    right_down: self.RUN,
-                    left_down:  self.RUN,
-                    # a_down:     self.AUTORUN,    # ← 예전: A = AutoRun
-                    a_down:     self.GUARD,         # ★ 변경: A = Guard
-                    s_down:     self.ATTACK,        # S → Attack
-                    d_down:     self.ATTACK2,       # D → Attack2
+                    right_down:     self.RUN,
+                    left_down:      self.RUN,
+                    a_down:         self.GUARD,    # A → Guard
+                    s_down:         self.ATTACK,   # S → Attack
+                    d_down:         self.ATTACK2,  # D → Attack2
+                    space_down:     self.JUMP,     # ★ Space → Jump
                 },
 
-
+                # Run 상태
                 self.RUN: {
-                    right_up:   self.IDLE,
-                    left_up:    self.IDLE,
-                    right_down: self.RUN,
-                    left_down:  self.RUN,
-                    # a_down:     self.AUTORUN,    # 예전 AutoRun
-                    a_down:     self.GUARD,         # 달리는 중 A → Guard
-                    s_down:     self.ATTACK,
-                    d_down:     self.ATTACK2,
+                    right_up:       self.IDLE,
+                    left_up:        self.IDLE,
+                    right_down:     self.RUN,
+                    left_down:      self.RUN,
+                    a_down:         self.GUARD,
+                    s_down:         self.ATTACK,
+                    d_down:         self.ATTACK2,
+                    space_down:     self.JUMP,     # ★ 달리면서도 Space → Jump
                 },
 
-
+                # AutoRun (필요 시 다른 키에서 진입시키면 됨)
                 self.AUTORUN: {
-                    Time_out:   self.IDLE,
-                    right_down: self.RUN,
-                    left_down:  self.RUN,
-                    s_down:     self.ATTACK,
-                    d_down:     self.ATTACK2,
-                    a_down:     self.GUARD,         # AutoRun 중에 A → Guard
+                    Time_out:       self.IDLE,
+                    right_down:     self.RUN,
+                    left_down:      self.RUN,
+                    s_down:         self.ATTACK,
+                    d_down:         self.ATTACK2,
+                    a_down:         self.GUARD,
+                    # space_down:   self.JUMP,   # AutoRun 중 점프도 원하면 이 줄 주석 풀기
                 },
 
-                # Attack 이 끝나면 Idle/Run 으로
+                # Attack 끝나면 Idle/Run
                 self.ATTACK: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.RUN,
                 },
 
-                # Attack2 가 끝나도 Idle/Run 으로
+                # Attack2 끝나면 Idle/Run
                 self.ATTACK2: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.RUN,
                 },
 
-
+                # Guard 상태
                 self.GUARD: {
+                    a_up:           self.IDLE,   # A 떼면 Idle 로
+                },
 
-                    a_up:       self.IDLE,
+                # Jump 상태
+                self.JUMP: {
+                    jump_to_fall:   self.FALL,   # 최고점 → Fall
+                },
+
+                # Fall 상태
+                self.FALL: {
+                    land_idle:      self.IDLE,   # 착지 → Idle
+                    land_run:       self.RUN,    # 착지 → Run
                 },
 
             }
