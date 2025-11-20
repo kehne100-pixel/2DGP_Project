@@ -63,23 +63,25 @@ SPRITE = {
 
     'attack2': {
         'rects': [
-            (187, 1226, 61, 80),
-            (248, 1223, 61, 80),
-            (303, 1223, 61, 80),
+            (207, 1223, 60, 57),
+            (295, 1223, 74, 47),
+            (383, 1223, 74, 48),
 
 
         ],
-        'frames': 3,            # ← 나중에 rect 개수에 맞게 수정 (예: 3)
+        'frames': 3,
         'flip_when_left': True
     },
 }
+
+
 
 
 def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=DRAW_H):
     cfg = SPRITE[key]
 
     if 'rects' in cfg:
-        frame_idx = int(frame_idx)  # float 방지
+        frame_idx = int(frame_idx)
         sx, sy, sw, sh = cfg['rects'][frame_idx % len(cfg['rects'])]
         if face_dir == -1 and cfg.get('flip_when_left', False):
             image.clip_composite_draw(sx, sy, sw, sh, 0, 'h', x, y, draw_w, draw_h)
@@ -159,7 +161,7 @@ class Run:
     def do(self):
         self.frame = (self.frame + 1) % self.frame_count
         self.keroro.x += self.keroro.dir * self.SPEED
-        self.keroro.x = max(50, min(1550, self.keroro.x))  # 화면 전체 이동 허용
+        self.keroro.x = max(50, min(1550, self.keroro.x))
 
     def draw(self):
         self.keroro._ensure_image()
@@ -220,7 +222,7 @@ class Attack:
         self.hold_timer = 0.0
 
     def enter(self, e):
-        """Attack 상태로 들어올 때 한 번 호출."""
+
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
@@ -259,7 +261,7 @@ class Attack:
                     self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
-        """현재 attack 프레임을 그린다."""
+
         self.keroro._ensure_image()
         idx = int(self.frame)  # 안전하게 정수로
 
@@ -274,7 +276,6 @@ class Attack:
         )
 
 
-# ★ Attack2 : Attack 과 같은 구조, 다른 스프라이트 키와 속도만 다르게 쓸 수 있음
 class Attack2:
     def __init__(self, keroro):
         self.keroro = keroro
@@ -284,17 +285,18 @@ class Attack2:
         self.SPEED = 8                 # 필요하면 Attack 과 다르게 조절 가능
         self.move_during_attack = False
 
-        self.anim_speed = 0.2          # Attack2 전용 속도 (원하면 다르게)
+        self.anim_speed = 0.4          # Attack2 전용 속도 (원하면 다르게)
         self.finished = False
 
         self.hold_time = 0.15          # 마지막 프레임 유지 시간
         self.hold_timer = 0.0
 
     def enter(self, e):
-        """Attack2 상태로 들어올 때 한 번 호출."""
+
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
+
 
         # 공격 시작할 때 캐릭터가 움직이는 중이었는지 기억
         self.move_during_attack = (self.keroro.dir != 0)
@@ -325,19 +327,30 @@ class Attack2:
                     self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
-        """현재 attack2 프레임을 그린다."""
+
         self.keroro._ensure_image()
         idx = int(self.frame)
-
-        draw_from_cfg(
-            self.keroro.image,
-            'attack2',
-            idx,
-            self.keroro.face_dir,
-            self.keroro.x,
-            self.keroro.y,
-            100, 100
-        )
+        if self.keroro.face_dir == -1:
+            # 왼쪽을 향할 때는 약간 위치 조정
+            draw_from_cfg(
+                self.keroro.image,
+                'attack2',
+                idx,
+                self.keroro.face_dir,
+                self.keroro.x - 50,
+                self.keroro.y,
+                110, 100
+            )
+        else:
+            draw_from_cfg(
+                self.keroro.image,
+                'attack2',
+                idx,
+                self.keroro.face_dir,
+                self.keroro.x+50,
+                self.keroro.y,
+                110, 100
+            )
 
 
 # ---------------------------
