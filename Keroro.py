@@ -399,7 +399,7 @@ class Attack2:
             )
 
 
-# Guard 상태
+
 class Guard:
 
     def __init__(self, keroro):
@@ -483,7 +483,6 @@ class Jump:
         )
 
 
-# Fall 상태 (하강)
 class Fall:
 
     def __init__(self, keroro):
