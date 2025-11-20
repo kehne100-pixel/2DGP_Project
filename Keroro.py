@@ -9,9 +9,7 @@ import game_framework
 from state_machine import StateMachine
 
 
-# ---------------------------
-# 이벤트 판별 함수
-# ---------------------------
+
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
 def right_up(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_RIGHT
 def left_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_LEFT
@@ -29,15 +27,12 @@ def Time_out(e):   return e[0] == 'TIME_OUT'
 def attack_done_idle(e): return e[0] == 'ATTACK_DONE_IDLE'
 def attack_done_run(e):  return e[0] == 'ATTACK_DONE_RUN'
 
-# 점프/하강 상태 전환용 이벤트
+
 def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'   # Jump → Fall
 def land_idle(e):    return e[0] == 'LAND_IDLE'      # Fall → Idle
 def land_run(e):     return e[0] == 'LAND_RUN'       # Fall → Run
 
 
-# ---------------------------
-# 스프라이트 설정
-# ---------------------------
 IMAGE_W, IMAGE_H = 996, 1917
 CELL_W, CELL_H   = 40, 80
 DRAW_W, DRAW_H   = 130, 130
@@ -90,33 +85,40 @@ SPRITE = {
         'flip_when_left': True
     },
 
-    # Guard 모션
+
     'guard': {
         'rects': [
-            # (sx, sy, sw, sh)  ← 네가 실제 가드 프레임 좌표로 수정
-            (0, 0, 60, 60),
+
+            (469, 1617, 51, 52),
         ],
         'frames': 1,
         'flip_when_left': True
     },
 
-    # ★ Jump 모션
     'jump': {
         'rects': [
-            # (sx, sy, sw, sh)  ← 점프(상승) 프레임들 좌표를 네가 채우기
-            (0, 0, 60, 60),
+
+            (0, 1393, 75, 44),
+            (79, 1391, 62, 60),
+            (151, 1393, 75, 70),
+            (240, 1393, 75, 80),
+            (320, 1393, 75, 80),
+            (400, 1393, 75, 80),
+            (480, 1393, 75, 80),
+            (560, 1393, 75, 80),
+            (640, 1393, 75, 80),
         ],
-        'frames': 1,      # 실제 점프 프레임 개수로 수정
+        'frames': 9,
         'flip_when_left': True
     },
 
-    # ★ Fall 모션
+
     'fall': {
         'rects': [
-            # (sx, sy, sw, sh)  ← 하강 프레임들 좌표를 네가 채우기
+
             (0, 0, 60, 60),
         ],
-        'frames': 1,      # 실제 하강 프레임 개수로 수정
+        'frames': 1,
         'flip_when_left': True
     },
 }
@@ -142,18 +144,13 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
         image.clip_draw(sx, sy, CELL_W, CELL_H, x, y, draw_w, draw_h)
 
 
-# ---------------------------
-# Idle 애니메이션 타이밍
-# ---------------------------
+
 idle_time_per_action = 0.5
 idle_action_per_time = 1.0 / idle_time_per_action
 idle_frames_per_action = 4
 idle_frame_per_second = idle_frames_per_action * idle_action_per_time
 
 
-# ---------------------------
-# 상태 클래스들
-# ---------------------------
 class Idle:
     def __init__(self, keroro):
         self.keroro = keroro
@@ -395,9 +392,7 @@ class Attack2:
 
 # Guard 상태
 class Guard:
-    """
-    A 키를 누르고 있는 동안 가드 자세 유지
-    """
+
     def __init__(self, keroro):
         self.keroro = keroro
         self.frame = 0.0
@@ -432,12 +427,7 @@ class Guard:
 
 # Jump 상태 (상승)
 class Jump:
-    """
-    스페이스바 누르면 진입하는 점프(상승) 상태
-    - Idle, Run 에서 Space 누르면 Jump
-    - vy > 0 동안 위로 이동
-    - vy <= 0 되면 JUMP_TO_FALL 이벤트 발생 → Fall 상태로 전환
-    """
+
     def __init__(self, keroro):
         self.keroro = keroro
         self.frame = 0.0
@@ -486,11 +476,7 @@ class Jump:
 
 # Fall 상태 (하강)
 class Fall:
-    """
-    Jump 최고점 이후 하강 상태
-    - Jump 에서 JUMP_TO_FALL 이벤트로 진입
-    - y <= ground_y 되면 착지 → Idle 또는 Run 으로 복귀
-    """
+
     def __init__(self, keroro):
         self.keroro = keroro
         self.frame = 0.0
