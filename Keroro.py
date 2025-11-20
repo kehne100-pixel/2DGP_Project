@@ -71,14 +71,13 @@ SPRITE = {
         'flip_when_left': True
     },
 
-    # ★ Guard 애니메이션용 슬롯 (좌표/프레임 수는 네가 직접 설정)
+
     'guard': {
         'rects': [
-            # (sx, sy, sw, sh) 형태로 프레임당 영역 넣기
-            # ↓↓ 이건 예시니까 반드시 네 스프라이트에 맞게 바꿔!
+
             (0, 0, 60, 60),
         ],
-        'frames': 1,              # 실제 프레임 개수로 수정
+        'frames': 1,
         'flip_when_left': True
     },
 }
