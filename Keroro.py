@@ -546,7 +546,7 @@ class Fall:
 
 
 
-# 숫자 1 스킬 상태
+
 class Skill:
 
     def __init__(self, keroro):
@@ -554,10 +554,10 @@ class Skill:
         self.frame = 0.0
         self.frame_count = SPRITE['skill']['frames']
 
-        self.SPEED = 6
+        self.SPEED = 4
         self.move_during_skill = False
 
-        self.anim_speed = 0.2
+        self.anim_speed = 0.08
         self.finished = False
 
         self.hold_time = 0.35
@@ -624,10 +624,10 @@ class Skill2:
         self.frame = 0.0
         self.frame_count = SPRITE['skill2']['frames']
 
-        self.SPEED = 6
+        self.SPEED = 4
         self.move_during_skill = False
 
-        self.anim_speed = 0.18
+        self.anim_speed = 0.08
         self.finished = False
 
         self.hold_time = 0.35
@@ -693,7 +693,7 @@ class Skill3:
         self.frame = 0.0
         self.frame_count = SPRITE['skill3']['frames']
 
-        self.SPEED = 4
+        self.SPEED = 6
         self.move_during_skill = False
 
         self.anim_speed = 0.18
@@ -702,10 +702,17 @@ class Skill3:
         self.hold_time = 0.35
         self.hold_timer = 0.0
 
+        # ★ 첫 동작(프레임 0)을 얼마나 보여줄지
+        self.start_hold_time = 0.15   # 0.15초 정도 시전 준비 포즈 유지
+        self.start_timer = 0.0
+
     def enter(self, e):
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
+
+        # ★ 타이머 초기화
+        self.start_timer = 0.0
 
         if self.keroro.face_dir != 0:
             self.keroro.dir = self.keroro.face_dir
@@ -717,6 +724,14 @@ class Skill3:
 
     def do(self):
         if not self.finished:
+
+            # ★ 여기서 일정 시간 동안 0번 프레임 고정
+            if self.start_timer < self.start_hold_time:
+                self.start_timer += game_framework.frame_time
+                # frame은 0 그대로 두고, 아래 코드 실행 안 함
+                return
+
+            # 그 다음부터 프레임을 넘기기 시작
             self.frame += self.anim_speed
 
             if self.move_during_skill:
@@ -744,7 +759,7 @@ class Skill3:
 
         draw_from_cfg(
             self.keroro.image,
-            'skill3',   # ★ 스킬3 스프라이트 사용
+            'skill3',
             idx,
             self.keroro.face_dir,
             self.keroro.x,
@@ -752,7 +767,6 @@ class Skill3:
             skill_draw_w,
             skill_draw_h
         )
-
 
 
 # ---------------------------
