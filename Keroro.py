@@ -163,11 +163,13 @@ SPRITE = {
         'flip_when_left': True
     },
 
-    # 스킬3 (여기 좌표/frames는 네가 바꿔서 사용)
     'skill3': {
         'rects': [
 
-            (0, 0, 60, 60),
+            (0, 1, 47, 58),
+            (80, 3, 63, 47),
+            (149, 3, 66, 46),
+
         ],
         'frames': 3,
         'flip_when_left': True
