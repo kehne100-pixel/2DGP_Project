@@ -8,26 +8,18 @@ from sdl2 import (
 import game_framework
 from state_machine import StateMachine
 
-
-
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
 def right_up(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_RIGHT
 def left_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_LEFT
 def left_up(e):    return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_LEFT
-
 def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a   # Guard 시작
 def a_up(e):       return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_a   # Guard 해제
-
 def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s   # Attack
 def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d   # Attack2
-
 def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE  # ★ 점프
-
 def Time_out(e):   return e[0] == 'TIME_OUT'
 def attack_done_idle(e): return e[0] == 'ATTACK_DONE_IDLE'
 def attack_done_run(e):  return e[0] == 'ATTACK_DONE_RUN'
-
-
 def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'   # Jump → Fall
 def land_idle(e):    return e[0] == 'LAND_IDLE'      # Fall → Idle
 def land_run(e):     return e[0] == 'LAND_RUN'       # Fall → Run
@@ -159,6 +151,12 @@ idle_action_per_time = 1.0 / idle_time_per_action
 idle_frames_per_action = 4
 idle_frame_per_second = idle_frames_per_action * idle_action_per_time
 
+Run_time_per_action = 0.5
+Run_action_per_time = 1.0 / Run_time_per_action
+Run_frames_per_action = 4
+Run_frame_per_second = Run_frames_per_action * Run_action_per_time
+
+
 
 class Idle:
     def __init__(self, keroro):
@@ -216,7 +214,7 @@ class Run:
         pass
 
     def do(self):
-        self.frame = (self.frame + 1) % self.frame_count
+        self.frame = (self.frame + Run_frame_per_second * game_framework.frame_time) % self.frame_count
         self.keroro.x += self.keroro.dir * self.SPEED
         self.keroro.x = max(50, min(1550, self.keroro.x))
 
@@ -233,34 +231,6 @@ class Run:
         )
 
 
-class AutoRun:
-    def __init__(self, keroro):
-        self.keroro = keroro
-
-    def enter(self, e):
-        self.start_time = get_time()
-        self.keroro.dir = -1
-        self.keroro.face_dir = -1
-
-    def exit(self, e):
-        self.keroro.dir = 0
-
-    def do(self):
-        self.keroro.frame = (self.keroro.frame + 1) % SPRITE['run']['frames']
-        self.keroro.x += self.keroro.dir * 10
-        self.keroro.x = max(50, min(1550, self.keroro.x))
-
-    def draw(self):
-        self.keroro._ensure_image()
-        draw_from_cfg(
-            self.keroro.image,
-            'run',
-            self.keroro.frame,
-            self.keroro.face_dir,
-            self.keroro.x,
-            self.keroro.y,
-            DRAW_W + 8, DRAW_H + 8
-        )
 
 
 class Attack:
@@ -291,10 +261,10 @@ class Attack:
 
     def do(self):
         if not self.finished:
-            # 공격 애니메이션 재생
+
             self.frame += self.anim_speed
 
-            # 달리던 중 공격이면 계속 이동
+
             if self.move_during_attack:
                 self.keroro.x += self.keroro.dir * self.SPEED
                 self.keroro.x = max(50, min(1550, self.keroro.x))
@@ -554,7 +524,6 @@ class Keroro:
         # 상태 인스턴스
         self.IDLE    = Idle(self)
         self.RUN     = Run(self)
-        self.AUTORUN = AutoRun(self)
         self.ATTACK  = Attack(self)
         self.ATTACK2 = Attack2(self)
         self.GUARD   = Guard(self)
@@ -588,16 +557,7 @@ class Keroro:
                     space_down:     self.JUMP,     # ★ 달리면서도 Space → Jump
                 },
 
-                # AutoRun (필요 시 다른 키에서 진입시키면 됨)
-                self.AUTORUN: {
-                    Time_out:       self.IDLE,
-                    right_down:     self.RUN,
-                    left_down:      self.RUN,
-                    s_down:         self.ATTACK,
-                    d_down:         self.ATTACK2,
-                    a_down:         self.GUARD,
-                    # space_down:   self.JUMP,   # AutoRun 중 점프도 원하면 이 줄 주석 풀기
-                },
+
 
                 # Attack 끝나면 Idle/Run
                 self.ATTACK: {
