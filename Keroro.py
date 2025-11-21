@@ -127,7 +127,7 @@ SPRITE = {
         'flip_when_left': True
     },
 
-    # 스킬1
+
     'skill': {
         'rects': [
             (18, 756, 48, 54),
@@ -554,7 +554,7 @@ class Skill:
         self.frame = 0.0
         self.frame_count = SPRITE['skill']['frames']
 
-        self.SPEED = 4
+        self.SPEED = 3
         self.move_during_skill = False
 
         self.anim_speed = 0.08
@@ -624,7 +624,7 @@ class Skill2:
         self.frame = 0.0
         self.frame_count = SPRITE['skill2']['frames']
 
-        self.SPEED = 4
+        self.SPEED = 3
         self.move_during_skill = False
 
         self.anim_speed = 0.08
