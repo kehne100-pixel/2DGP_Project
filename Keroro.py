@@ -686,7 +686,6 @@ class Skill2:
 
 
 
-# 숫자 3 스킬 상태
 class Skill3:
 
     def __init__(self, keroro):
@@ -694,7 +693,7 @@ class Skill3:
         self.frame = 0.0
         self.frame_count = SPRITE['skill3']['frames']
 
-        self.SPEED = 6
+        self.SPEED = 4
         self.move_during_skill = False
 
         self.anim_speed = 0.18
