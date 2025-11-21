@@ -3,10 +3,12 @@ from sdl2 import (
     SDL_KEYDOWN, SDL_KEYUP,
     SDLK_RIGHT, SDLK_LEFT,
     SDLK_a, SDLK_s, SDLK_d,
-    SDLK_SPACE
+    SDLK_SPACE,
+    SDLK_1,          # 숫자 1 키
 )
 import game_framework
 from state_machine import StateMachine
+
 
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
 def right_up(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_RIGHT
@@ -16,13 +18,16 @@ def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].
 def a_up(e):       return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_a   # Guard 해제
 def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s   # Attack
 def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d   # Attack2
-def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE  # ★ 점프
+def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE  # 점프
 def Time_out(e):   return e[0] == 'TIME_OUT'
 def attack_done_idle(e): return e[0] == 'ATTACK_DONE_IDLE'
 def attack_done_run(e):  return e[0] == 'ATTACK_DONE_RUN'
 def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'   # Jump → Fall
 def land_idle(e):    return e[0] == 'LAND_IDLE'      # Fall → Idle
 def land_run(e):     return e[0] == 'LAND_RUN'       # Fall → Run
+
+# 숫자 1 키 스킬
+def skill_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_1
 
 
 IMAGE_W, IMAGE_H = 996, 1917
@@ -77,10 +82,8 @@ SPRITE = {
         'flip_when_left': True
     },
 
-
     'guard': {
         'rects': [
-
             (469, 1617, 51, 52),
         ],
         'frames': 1,
@@ -89,7 +92,6 @@ SPRITE = {
 
     'jump': {
         'rects': [
-
             (0, 1393, 75, 44),
             (79, 1391, 62, 60),
             (151, 1393, 64, 58),
@@ -104,10 +106,8 @@ SPRITE = {
         'flip_when_left': True
     },
 
-
     'fall': {
         'rects': [
-
             (7, 1313, 52, 71),
             (73, 1313, 51, 73),
             (137, 1313, 53, 73),
@@ -116,10 +116,26 @@ SPRITE = {
             (333, 1313, 51, 71),
             (397, 1313, 52, 73),
             (463, 1313, 50, 73),
-
-
         ],
         'frames': 8,
+        'flip_when_left': True
+    },
+
+    'skill': {
+        'rects': [
+
+            (18, 756, 48, 54),
+            (0, 0, 60, 60),
+            (0, 0, 60, 60),
+            (0, 0, 60, 60),
+            (0, 0, 60, 60),
+            (0, 0, 60, 60),
+            (0, 0, 60, 60),
+            (0, 0, 60, 60),
+            (0, 0, 60, 60),
+
+        ],
+        'frames': 9,
         'flip_when_left': True
     },
 }
@@ -263,7 +279,6 @@ class Attack:
         if not self.finished:
 
             self.frame += self.anim_speed
-
 
             if self.move_during_attack:
                 self.keroro.x += self.keroro.dir * self.SPEED
@@ -420,7 +435,6 @@ class Jump:
         self.frame = 0.0
         self.frame_count = SPRITE['jump']['frames']
 
-
         self.keroro.vy = self.JUMP_POWER
 
     def exit(self, e):
@@ -430,10 +444,8 @@ class Jump:
 
         self.frame = (self.frame + self.anim_speed) % self.frame_count
 
-
         self.keroro.y += self.keroro.vy
         self.keroro.vy += self.GRAVITY
-
 
         if self.keroro.vy <= 0:
             self.keroro.state_machine.handle_state_event(('JUMP_TO_FALL', None))
@@ -504,6 +516,87 @@ class Fall:
         )
 
 
+
+# ★ 숫자 1 스킬 상태
+class Skill:
+
+
+    def __init__(self, keroro):
+        self.keroro = keroro
+        self.frame = 0.0
+        self.frame_count = SPRITE['skill']['frames']
+
+        # 스킬 느낌 나게 공격보다 조금 더 빠르게/멀리
+        self.SPEED = 12
+        self.move_during_skill = False
+
+        # 스킬 애니 속도
+        self.anim_speed = 0.18
+        self.finished = False
+
+        # 마지막 포즈를 조금 더 오래 고정
+        self.hold_time = 0.35
+        self.hold_timer = 0.0
+
+    def enter(self, e):
+        self.frame = 0.0
+        self.finished = False
+        self.hold_timer = 0.0
+
+        # 스킬 발동 순간, 바라보는 방향으로 강제 돌진
+        if self.keroro.face_dir != 0:
+            self.keroro.dir = self.keroro.face_dir
+
+        # 이동 중인지 체크 (달리면서 쓰면 돌진 + 스킬)
+        self.move_during_skill = (self.keroro.dir != 0)
+
+    def exit(self, e):
+        # 스킬 끝나면 멈춘 상태로 두고, 다음 상태에서 다시 dir 설정
+        self.keroro.dir = 0
+
+    def do(self):
+        if not self.finished:
+            self.frame += self.anim_speed
+
+            # 스킬 동안 강한 돌진
+            if self.move_during_skill:
+                self.keroro.x += self.keroro.dir * self.SPEED
+                self.keroro.x = max(50, min(1550, self.keroro.x))
+
+            if self.frame >= self.frame_count:
+                self.frame = self.frame_count - 1
+                self.finished = True
+        else:
+            # 마지막 포즈 유지
+            self.hold_timer += game_framework.frame_time
+
+            if self.hold_timer >= self.hold_time:
+                # 스킬 끝나고, 방향에 따라 Run / Idle 복귀
+                if self.keroro.dir != 0:
+                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
+                else:
+                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+
+    def draw(self):
+        self.keroro._ensure_image()
+        idx = int(self.frame) % self.frame_count
+
+        # 스킬은 평소보다 크게 그려서 '스킬 느낌'
+        skill_draw_w = 160
+        skill_draw_h = 160
+
+        draw_from_cfg(
+            self.keroro.image,
+            'skill',
+            idx,
+            self.keroro.face_dir,
+            self.keroro.x,
+            self.keroro.y + 10,  # 살짝 위로
+            skill_draw_w,
+            skill_draw_h
+        )
+
+
 # ---------------------------
 # Keroro 본체
 # ---------------------------
@@ -522,13 +615,15 @@ class Keroro:
         self.image = None
 
         # 상태 인스턴스
-        self.IDLE    = Idle(self)
-        self.RUN     = Run(self)
-        self.ATTACK  = Attack(self)
-        self.ATTACK2 = Attack2(self)
-        self.GUARD   = Guard(self)
-        self.JUMP    = Jump(self)
-        self.FALL    = Fall(self)
+        self.IDLE        = Idle(self)
+        self.RUN         = Run(self)
+        self.ATTACK      = Attack(self)
+        self.ATTACK2     = Attack2(self)
+        self.GUARD       = Guard(self)
+        self.JUMP        = Jump(self)
+        self.FALL        = Fall(self)
+        self.JUMP_ATTACK = JumpAttack(self)   # 공중 공격
+        self.SKILL       = Skill(self)        # 숫자 1 스킬
 
         # 상태 머신 구성
         self.state_machine = StateMachine(
@@ -542,7 +637,8 @@ class Keroro:
                     a_down:         self.GUARD,    # A → Guard
                     s_down:         self.ATTACK,   # S → Attack
                     d_down:         self.ATTACK2,  # D → Attack2
-                    space_down:     self.JUMP,     # ★ Space → Jump
+                    space_down:     self.JUMP,     # Space → Jump
+                    skill_down:     self.SKILL,    # 1 → Skill
                 },
 
                 # Run 상태
@@ -554,10 +650,9 @@ class Keroro:
                     a_down:         self.GUARD,
                     s_down:         self.ATTACK,
                     d_down:         self.ATTACK2,
-                    space_down:     self.JUMP,     # ★ 달리면서도 Space → Jump
+                    space_down:     self.JUMP,     # 달리면서 Jump
+                    skill_down:     self.SKILL,    # 달리면서 Skill
                 },
-
-
 
                 # Attack 끝나면 Idle/Run
                 self.ATTACK: {
@@ -578,13 +673,30 @@ class Keroro:
 
                 # Jump 상태
                 self.JUMP: {
-                    jump_to_fall:   self.FALL,   # 최고점 → Fall
+                    jump_to_fall:   self.FALL,        # 최고점 → Fall
+                    s_down:         self.JUMP_ATTACK, # 점프 중 S → 공중 공격
+                    d_down:         self.JUMP_ATTACK, # 점프 중 D → 공중 공격
                 },
 
                 # Fall 상태
                 self.FALL: {
-                    land_idle:      self.IDLE,   # 착지 → Idle
-                    land_run:       self.RUN,    # 착지 → Run
+                    land_idle:      self.IDLE,        # 착지 → Idle
+                    land_run:       self.RUN,         # 착지 → Run
+                    s_down:         self.JUMP_ATTACK, # 떨어지는 중 S → 공중 공격
+                    d_down:         self.JUMP_ATTACK, # 떨어지는 중 D → 공중 공격
+                },
+
+                # JumpAttack 상태
+                self.JUMP_ATTACK: {
+                    attack_done_idle: self.IDLE,
+                    attack_done_run:  self.RUN,
+                    jump_to_fall:     self.FALL,
+                },
+
+                # Skill 상태
+                self.SKILL: {
+                    attack_done_idle: self.IDLE,
+                    attack_done_run:  self.RUN,
                 },
 
             }
