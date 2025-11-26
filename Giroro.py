@@ -28,7 +28,7 @@ def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'   # Jump → Fall
 def land_idle(e):    return e[0] == 'LAND_IDLE'      # Fall → Idle
 def land_run(e):     return e[0] == 'LAND_RUN'       # Fall → Run
 
-# 숫자 1 키 스킬
+
 def skill_down(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_1
 # 숫자 2 키 스킬2
 def skill2_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_2
