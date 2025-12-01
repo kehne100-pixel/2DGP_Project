@@ -28,7 +28,7 @@ def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'   # Jump → Fall
 def land_idle(e):    return e[0] == 'LAND_IDLE'      # Fall → Idle
 def land_run(e):     return e[0] == 'LAND_RUN'       # Fall → Run
 
-# 숫자 1 키 스킬
+
 def skill_down(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_1
 # 숫자 2 키 스킬2
 def skill2_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_2
@@ -80,11 +80,13 @@ SPRITE = {
 
     'attack2': {
         'rects': [
-            (207, 1223, 60, 57),
-            (295, 1223, 74, 47),
-            (383, 1223, 74, 48),
+            (1, 1497, 40, 54),
+            (49, 1502, 56, 56),
+            (110, 1505, 56, 56),
+            (171, 1506, 63, 54),
+            (243, 1503, 62, 60),
         ],
-        'frames': 3,
+        'frames': 5,
         'flip_when_left': True
     },
 
@@ -102,6 +104,8 @@ SPRITE = {
             (48, 2369, 52, 59),
             (102, 2367, 50, 61),
             (155, 2368, 51, 57),
+
+
         ],
         'frames': 4,
         'flip_when_left': True
@@ -117,6 +121,7 @@ SPRITE = {
         'frames': 4,
         'flip_when_left': True
     },
+
 
     'skill': {
         'rects': [
@@ -155,9 +160,11 @@ SPRITE = {
 
     'skill3': {
         'rects': [
+
             (0, 1, 47, 58),
             (80, 3, 63, 47),
             (149, 3, 66, 46),
+
         ],
         'frames': 3,
         'flip_when_left': True
@@ -185,6 +192,7 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
         image.clip_draw(sx, sy, CELL_W, CELL_H, x, y, draw_w, draw_h)
 
 
+
 idle_time_per_action = 0.5
 idle_action_per_time = 1.0 / idle_time_per_action
 idle_frames_per_action = 4
@@ -194,6 +202,7 @@ Run_time_per_action = 0.5
 Run_action_per_time = 1.0 / Run_time_per_action
 Run_frames_per_action = 4
 Run_frame_per_second = Run_frames_per_action * Run_action_per_time
+
 
 
 class Idle:
@@ -267,6 +276,8 @@ class Run:
             self.giroro.y,
             100, 100
         )
+
+
 
 
 class Attack:
@@ -401,7 +412,9 @@ class Attack2:
             )
 
 
+
 class Guard:
+
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -434,7 +447,9 @@ class Guard:
         )
 
 
+
 class Jump:
+
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -454,6 +469,7 @@ class Jump:
         pass
 
     def do(self):
+
         self.frame = (self.frame + self.anim_speed) % self.frame_count
 
         self.giroro.y += self.giroro.vy
@@ -478,43 +494,29 @@ class Jump:
 
 
 class Fall:
+
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
         self.frame_count = SPRITE['fall']['frames']
+        self.anim_speed = 0.25
 
-        # 낙하 애니메이션을 한 번만 재생하기 위한 설정
-        self.duration = 0.4   # 전체 낙하 시간 (초), 필요하면 조절
-        self.elapsed = 0.0
-        self.start_y = 0.0
+        self.GRAVITY = -0.05
 
     def enter(self, e):
         self.frame = 0.0
         self.frame_count = SPRITE['fall']['frames']
 
-        self.elapsed = 0.0
-        self.start_y = self.giroro.y  # 낙하 시작 높이
-
     def exit(self, e):
         pass
 
     def do(self):
-        # 지난 시간 누적
-        self.elapsed += game_framework.frame_time
+        self.frame = (self.frame + self.anim_speed) % self.frame_count
 
-        # 진행률 0.0 ~ 1.0
-        t = self.elapsed / self.duration
-        if t > 1.0:
-            t = 1.0
+        self.giroro.y += self.giroro.vy
+        self.giroro.vy += self.GRAVITY
 
-        # 진행률에 따라 프레임 0 → 마지막 프레임까지 한 번만 재생
-        self.frame = t * (self.frame_count - 1)
-
-        # y값도 시작 위치에서 ground_y까지 선형 이동
-        self.giroro.y = self.start_y + (self.giroro.ground_y - self.start_y) * t
-
-        # 낙하 완료
-        if t >= 1.0:
+        if self.giroro.y <= self.giroro.ground_y:
             self.giroro.y = self.giroro.ground_y
             self.giroro.vy = 0
 
@@ -538,7 +540,10 @@ class Fall:
         )
 
 
+
+
 class Skill:
+
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -605,7 +610,10 @@ class Skill:
         )
 
 
+
+# 숫자 2 스킬 상태
 class Skill2:
+
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -672,7 +680,9 @@ class Skill2:
         )
 
 
+
 class Skill3:
+
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -687,7 +697,7 @@ class Skill3:
         self.hold_time = 0.35
         self.hold_timer = 0.0
 
-        # 첫 동작(프레임 0)을 얼마나 보여줄지
+        # ★ 첫 동작(프레임 0)을 얼마나 보여줄지
         self.start_hold_time = 0.15   # 0.15초 정도 시전 준비 포즈 유지
         self.start_timer = 0.0
 
@@ -696,6 +706,7 @@ class Skill3:
         self.finished = False
         self.hold_timer = 0.0
 
+        # ★ 타이머 초기화
         self.start_timer = 0.0
 
         if self.giroro.face_dir != 0:
@@ -709,12 +720,13 @@ class Skill3:
     def do(self):
         if not self.finished:
 
-            # 첫 프레임 잠깐 고정
+            # ★ 여기서 일정 시간 동안 0번 프레임 고정
             if self.start_timer < self.start_hold_time:
                 self.start_timer += game_framework.frame_time
+                # frame은 0 그대로 두고, 아래 코드 실행 안 함
                 return
 
-            # 그 다음부터 프레임 진행
+            # 그 다음부터 프레임을 넘기기 시작
             self.frame += self.anim_speed
 
             if self.move_during_skill:
