@@ -350,7 +350,7 @@ class Attack2:
         self.SPEED = 8
         self.move_during_attack = False
 
-        self.anim_speed = 0.4
+        self.anim_speed = 0.1
         self.finished = False
 
         self.hold_time = 0.15
