@@ -563,21 +563,20 @@ class Skill:
         self.finished = False
         self.hold_timer = 0.0
 
-        if self.giroro.face_dir != 0:
-            self.giroro.dir = self.giroro.face_dir
-
-        self.move_during_skill = (self.giroro.dir != 0)
+        # ★ 제자리 스킬: 이동 방향 없애기
+        self.giroro.dir = 0
+        self.move_during_skill = False
 
     def exit(self, e):
+        # 스킬 종료 후에도 이동 방향 0 유지
         self.giroro.dir = 0
 
     def do(self):
         if not self.finished:
+
             self.frame += self.anim_speed
 
-            if self.move_during_skill:
-                self.giroro.x += self.giroro.dir * self.SPEED
-                self.giroro.x = max(50, min(1550, self.giroro.x))
+
 
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
@@ -608,6 +607,7 @@ class Skill:
             skill_draw_w,
             skill_draw_h
         )
+
 
 
 
