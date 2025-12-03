@@ -555,7 +555,7 @@ class Skill:
         self.anim_speed = 0.08
         self.finished = False
 
-        self.hold_time = 0.35
+        self.hold_time = 0.5
         self.hold_timer = 0.0
 
     def enter(self, e):
@@ -563,12 +563,12 @@ class Skill:
         self.finished = False
         self.hold_timer = 0.0
 
-        # ★ 제자리 스킬: 이동 방향 없애기
+
         self.giroro.dir = 0
         self.move_during_skill = False
 
     def exit(self, e):
-        # 스킬 종료 후에도 이동 방향 0 유지
+
         self.giroro.dir = 0
 
     def do(self):
