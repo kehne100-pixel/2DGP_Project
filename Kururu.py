@@ -710,9 +710,6 @@ class Skill3:
         )
 
 
-# ---------------------------
-# Kururu 본체
-# ---------------------------
 class Kururu:
     def __init__(self):
         self.x, self.y = 400, 90
