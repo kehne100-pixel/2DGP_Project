@@ -688,7 +688,7 @@ class Skill3:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                # 스킬3도 Idle로 끝
+               
                 self.kururu.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
