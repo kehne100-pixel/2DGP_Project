@@ -181,7 +181,6 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
         image.clip_draw(sx, sy, CELL_W, CELL_H, x, y, draw_w, draw_h)
 
 
-
 idle_time_per_action = 0.5
 idle_action_per_time = 1.0 / idle_time_per_action
 idle_frames_per_action = 4
@@ -191,7 +190,6 @@ Run_time_per_action = 0.5
 Run_action_per_time = 1.0 / Run_time_per_action
 Run_frames_per_action = 4
 Run_frame_per_second = Run_frames_per_action * Run_action_per_time
-
 
 
 class Idle:
@@ -479,7 +477,7 @@ class Fall:
         self.kururu = kururu
         self.frame = 0.0
         self.frame_count = SPRITE['fall']['frames']
-        self.anim_speed = 0.03
+        self.anim_speed = 0.03  # 느리게 한 프레임처럼 보이게
 
         self.GRAVITY = -0.05
 
@@ -557,10 +555,8 @@ class Skill:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.kururu.dir != 0:
-                    self.kururu.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.kururu.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                # 스킬 끝나면 항상 Idle로
+                self.kururu.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.kururu._ensure_image()
@@ -618,6 +614,7 @@ class Skill2:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
+                # 항상 Idle로 복귀
                 self.kururu.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
@@ -691,10 +688,8 @@ class Skill3:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.kururu.dir != 0:
-                    self.kururu.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.kururu.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                # 스킬3도 Idle로 끝
+                self.kururu.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.kururu._ensure_image()
@@ -795,19 +790,17 @@ class Kururu:
                     land_run:       self.RUN,
                 },
 
+
                 self.SKILL: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
                 },
 
                 self.SKILL2: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
                 },
 
                 self.SKILL3: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
                 },
             }
         )
