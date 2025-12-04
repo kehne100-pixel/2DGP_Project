@@ -662,7 +662,7 @@ class Skill3:
         self.frame = 0.0
         self.frame_count = SPRITE['skill3']['frames']
 
-        self.SPEED = 6
+        self.SPEED = 6          # 지금은 안 쓰지만 남겨둠
         self.move_during_skill = False
 
         self.anim_speed = 0.18
@@ -675,39 +675,36 @@ class Skill3:
         self.start_timer = 0.0
 
     def enter(self, e):
+        # ★ 제자리 스킬: 방향/이동 모두 0으로
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
 
         self.start_timer = 0.0
 
-        if self.tamama.face_dir != 0:
-            self.tamama.dir = self.tamama.face_dir
-
-        self.move_during_skill = (self.tamama.dir != 0)
+        self.tamama.dir = 0
+        self.move_during_skill = False
 
     def exit(self, e):
         self.tamama.dir = 0
 
     def do(self):
         if not self.finished:
+            # 초기 준비 포즈 유지
             if self.start_timer < self.start_hold_time:
                 self.start_timer += game_framework.frame_time
                 return
 
+            # 프레임만 진행, 위치는 고정
             self.frame += self.anim_speed
-
-            if self.move_during_skill:
-                self.tamama.x += self.tamama.dir * self.SPEED
-                self.tamama.x = max(50, min(1550, self.tamama.x))
 
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
                 self.finished = True
         else:
+            # 마지막 포즈 유지 후 Idle 로 복귀
             self.hold_timer += game_framework.frame_time
 
-            # ★ 스킬2와 같은 원리: 항상 Idle 로만 복귀
             if self.hold_timer >= self.hold_time:
                 self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
@@ -817,7 +814,6 @@ class Tamama:
                     attack_done_idle: self.IDLE,
                 },
 
-                # ★ Skill3도 Skill2처럼 항상 Idle 로
                 self.SKILL3: {
                     attack_done_idle: self.IDLE,
                 },
