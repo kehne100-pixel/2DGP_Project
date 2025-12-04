@@ -81,11 +81,11 @@ SPRITE = {
 
     'attack2': {
         'rects': [
-            (1, 1497, 40, 54),
-            (49, 1502, 56, 56),
-            (110, 1505, 56, 56),
-            (171, 1506, 63, 54),
-            (243, 1503, 62, 60),
+            (405, 1920, 37, 55),
+            (479, 1921, 50, 48),
+            (535, 1920, 59, 61),
+            (607, 1921, 53, 61),
+            (673, 1920, 47, 53),
         ],
         'frames': 5,
         'flip_when_left': True
@@ -297,7 +297,7 @@ class Attack:
         self.frame = 0           # 현재 프레임 인덱스(정수)
         self.timer = 0.0         # 현재 프레임에서 경과 시간
 
-   
+
         self.SPEED = 7
         self.move_during_attack = False
 
@@ -370,7 +370,7 @@ class Attack:
             self.tamama.face_dir,
             self.tamama.x,
             self.tamama.y,
-            100, 100
+            110, 110
         )
 
 
