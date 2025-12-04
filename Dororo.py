@@ -89,7 +89,7 @@ SPRITE = {
 
     'guard': {
         'rects': [
-            (212, 2075, 39, 52),
+            (0, 2342, 42, 51),
         ],
         'frames': 1,
         'flip_when_left': True
