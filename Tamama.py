@@ -297,7 +297,7 @@ class Attack:
         self.frame = 0           # 현재 프레임 인덱스(정수)
         self.timer = 0.0         # 현재 프레임에서 경과 시간
 
-        # 이동 관련
+   
         self.SPEED = 7
         self.move_during_attack = False
 
