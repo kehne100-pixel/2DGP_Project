@@ -4,9 +4,9 @@ from sdl2 import (
     SDLK_RIGHT, SDLK_LEFT,
     SDLK_a, SDLK_s, SDLK_d,
     SDLK_SPACE,
-    SDLK_1,          # 숫자 1 키
-    SDLK_2,          # 숫자 2 키 (스킬2)
-    SDLK_3,          # 숫자 3 키 (스킬3)
+    SDLK_1,
+    SDLK_2,
+    SDLK_3,
 )
 import game_framework
 from state_machine import StateMachine
@@ -16,27 +16,24 @@ def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].
 def right_up(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_RIGHT
 def left_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_LEFT
 def left_up(e):    return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_LEFT
-def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a   # Guard 시작
-def a_up(e):       return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_a   # Guard 해제
-def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s   # Attack
-def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d   # Attack2
-def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE  # 점프
+def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a
+def a_up(e):       return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_a
+def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s
+def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d
+def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE
 def Time_out(e):   return e[0] == 'TIME_OUT'
 def attack_done_idle(e): return e[0] == 'ATTACK_DONE_IDLE'
 def attack_done_run(e):  return e[0] == 'ATTACK_DONE_RUN'
-def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'   # Jump → Fall
-def land_idle(e):    return e[0] == 'LAND_IDLE'      # Fall → Idle
-def land_run(e):     return e[0] == 'LAND_RUN'       # Fall → Run
+def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'
+def land_idle(e):    return e[0] == 'LAND_IDLE'
+def land_run(e):     return e[0] == 'LAND_RUN'
 
-# 숫자 1 키 스킬
 def skill_down(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_1
-# 숫자 2 키 스킬2
 def skill2_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_2
-# 숫자 3 키 스킬3
 def skill3_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_3
 
 
-IMAGE_W, IMAGE_H = 1090, 2934
+IMAGE_W, IMAGE_H = 996, 1917
 CELL_W, CELL_H   = 40, 80
 DRAW_W, DRAW_H   = 130, 130
 
@@ -49,9 +46,9 @@ SPRITE = {
     'idle': {
         'rects': [
             (0,   2882, 42, 48),
-            (43,  2882, 60, 60),
-            (132, 1842, 60, 60),
-            (198, 1842, 60, 60),
+            (43,  2882, 41, 49),
+            (85, 2882, 42, 49),
+            (135, 2883, 41, 48),
         ],
         'frames': 4,
         'flip_when_left': True
@@ -59,10 +56,10 @@ SPRITE = {
 
     'run': {
         'rects': [
-            (4,   1544, 60, 60),
-            (67,  1544, 60, 60),
-            (132, 1544, 60, 60),
-            (198, 1544, 60, 60),
+            (0,   2709, 52, 46),
+            (58,  2711, 50, 44),
+            (112, 2710, 49, 45),
+            (165, 2711, 50, 44),
         ],
         'frames': 4,
         'flip_when_left': True
@@ -70,27 +67,29 @@ SPRITE = {
 
     'attack': {
         'rects': [
-            (4,   1228, 61, 80),
-            (65,  1228, 61, 80),
-            (138, 1228, 61, 80),
+            (213,   1920, 38, 55),
+            (271,  1920, 59, 53),
+            (339, 1920, 61, 53),
         ],
-        'frames': 3,
+        'frames': 4,
         'flip_when_left': True
     },
 
     'attack2': {
         'rects': [
-            (207, 1223, 60, 57),
-            (295, 1223, 74, 47),
-            (383, 1223, 74, 48),
+            (405, 1920, 37, 55),
+            (479, 1921, 50, 48),
+            (535, 1920, 59, 61),
+            (607, 1921, 53, 61),
+            (673, 1920, 47, 53),
         ],
-        'frames': 3,
+        'frames': 5,
         'flip_when_left': True
     },
 
     'guard': {
         'rects': [
-            (469, 1617, 51, 52),
+            (212, 2075, 39, 52),
         ],
         'frames': 1,
         'flip_when_left': True
@@ -98,75 +97,66 @@ SPRITE = {
 
     'jump': {
         'rects': [
-            (0, 1393, 75, 44),
-            (79, 1391, 62, 60),
-            (151, 1393, 64, 58),
-            (227, 1392, 61, 58),
-            (299, 1392, 64, 60),
-            (375, 1392, 62, 59),
-            (447, 1392, 64, 58),
-            (522, 1392, 63, 56),
-            (595, 1392, 63, 60),
+            (16, 2366, 45, 46),
+            (79, 2369, 37, 58),
+            (143, 2367, 40 ,58),
+            (211, 2368, 38, 58),
+            (275, 2366, 41, 58),
+            (343, 2369, 37, 58),
+            (407, 2367, 40, 58),
+            (475, 2368, 38, 57),
+            (539, 2369, 40, 58),
+            (603, 2367, 44, 58),
+            (667, 2368, 50, 58),
+            (738, 2366, 51, 52),
+            (806, 2369, 47, 46),
         ],
-        'frames': 9,
+        'frames': 13,
         'flip_when_left': True
     },
 
     'fall': {
         'rects': [
-            (7, 1313, 52, 71),
-            (73, 1313, 51, 73),
-            (137, 1313, 53, 73),
-            (203, 1313, 51, 73),
-            (267, 1313, 52, 72),
-            (333, 1313, 51, 71),
-            (397, 1313, 52, 73),
-            (463, 1313, 50, 73),
+            (333, 2071, 48, 67),
         ],
-        'frames': 8,
+        'frames': 1,
         'flip_when_left': True
     },
 
     'skill': {
         'rects': [
-            (18, 756, 48, 54),
-            (87, 756, 90, 58),
-            (193, 756, 66, 59),
-            (265, 756, 58, 58),
-            (352, 756, 89, 58),
-            (458, 756, 65, 59),
-            (547, 756, 37, 75),
-            (639, 756, 59, 58),
-            (731, 756, 46, 70),
+            (6, 1769, 45, 54),
+            (68, 1773, 66, 52),
+            (142, 1775, 62, 50),
+            (212, 1769, 37, 55),
+            (275, 1770, 59, 69),
+            (343, 1770, 56, 50),
+        ],
+        'frames': 6,
+        'flip_when_left': True
+    },
+
+    'skill2': {
+        'rects': [
+            (253, 285, 71, 47),
+            (333, 285, 74, 47),
+            (416, 285, 67, 51),
+            (494, 285, 76, 51),
+            (577, 286, 70, 46),
+            (657, 285, 75, 47),
+            (736, 285, 50, 51),
+            (818, 286, 58, 61),
+            (900, 285, 36, 62),
         ],
         'frames': 9,
         'flip_when_left': True
     },
 
-    # 스킬2
-    'skill2': {
-        'rects': [
-            (24, 343, 44, 51),
-            (123, 344, 74, 43),
-            (205, 346, 53, 54),
-            (296, 344, 60, 57),
-            (391, 328, 100, 63),
-            (515, 344, 59, 53),
-            (611, 344, 46, 50),
-            (710, 344, 47, 46),
-            (24, 271, 71, 48),
-            (121, 271, 73, 47),
-            (220, 271, 72, 45),
-        ],
-        'frames': 11,
-        'flip_when_left': True
-    },
-
     'skill3': {
         'rects': [
-            (0, 1, 47, 58),
-            (80, 3, 63, 47),
-            (149, 3, 66, 46),
+            (482, 2071, 39, 47),
+            (539, 2071, 49, 57),
+            (607, 2071 ,43, 57),
         ],
         'frames': 3,
         'flip_when_left': True
@@ -180,6 +170,7 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
     if 'rects' in cfg:
         frame_idx = int(frame_idx)
         sx, sy, sw, sh = cfg['rects'][frame_idx % len(cfg['rects'])]
+
         if face_dir == -1 and cfg.get('flip_when_left', False):
             image.clip_composite_draw(sx, sy, sw, sh, 0, 'h', x, y, draw_w, draw_h)
         else:
@@ -188,11 +179,11 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
 
     sx = (cfg['start_col'] + frame_idx) * CELL_W
     sy = row_y_from_top(cfg['row'])
+
     if face_dir == -1 and cfg.get('flip_when_left', False):
         image.clip_composite_draw(sx, sy, CELL_W, CELL_H, 0, 'h', x, y, draw_w, draw_h)
     else:
         image.clip_draw(sx, sy, CELL_W, CELL_H, x, y, draw_w, draw_h)
-
 
 
 idle_time_per_action = 0.5
@@ -204,7 +195,6 @@ Run_time_per_action = 0.5
 Run_action_per_time = 1.0 / Run_time_per_action
 Run_frames_per_action = 4
 Run_frame_per_second = Run_frames_per_action * Run_action_per_time
-
 
 
 class Idle:
@@ -280,25 +270,26 @@ class Run:
         )
 
 
-
-
 class Attack:
     def __init__(self, dororo):
         self.dororo = dororo
-        self.frame = 0.0
-        self.frame_count = SPRITE['attack']['frames']
 
-        self.SPEED = 8
+        self.frame_count = SPRITE['attack']['frames']
+        self.frame_durations = [0.16, 0.06, 0.12, 0.18]
+
+        self.frame = 0
+        self.timer = 0.0
+
+        self.SPEED = 7
         self.move_during_attack = False
 
-        self.anim_speed = 0.2
         self.finished = False
-
         self.hold_time = 0.15
         self.hold_timer = 0.0
 
     def enter(self, e):
-        self.frame = 0.0
+        self.frame = 0
+        self.timer = 0.0
         self.finished = False
         self.hold_timer = 0.0
 
@@ -309,16 +300,29 @@ class Attack:
 
     def do(self):
         if not self.finished:
+            self.timer += game_framework.frame_time
 
-            self.frame += self.anim_speed
+            if self.timer >= self.frame_durations[self.frame]:
+                self.timer -= self.frame_durations[self.frame]
+                self.frame += 1
+
+                if self.frame >= self.frame_count:
+                    self.frame = self.frame_count - 1
+                    self.finished = True
+                    return
 
             if self.move_during_attack:
-                self.dororo.x += self.dororo.dir * self.SPEED
-                self.dororo.x = max(50, min(1550, self.dororo.x))
+                if self.frame == 0:
+                    dx = self.dororo.dir * (self.SPEED * 0.3)
+                elif self.frame == 1:
+                    dx = self.dororo.dir * (self.SPEED * 1.0)
+                elif self.frame == 2:
+                    dx = self.dororo.dir * (self.SPEED * 0.1)
+                else:
+                    dx = 0
 
-            if self.frame >= self.frame_count:
-                self.frame = self.frame_count - 1
-                self.finished = True
+                self.dororo.x += dx
+                self.dororo.x = max(50, min(1550, self.dororo.x))
         else:
             self.hold_timer += game_framework.frame_time
 
@@ -339,7 +343,7 @@ class Attack:
             self.dororo.face_dir,
             self.dororo.x,
             self.dororo.y,
-            100, 100
+            110, 110
         )
 
 
@@ -352,7 +356,7 @@ class Attack2:
         self.SPEED = 8
         self.move_during_attack = False
 
-        self.anim_speed = 0.4
+        self.anim_speed = 0.1
         self.finished = False
 
         self.hold_time = 0.15
@@ -414,9 +418,7 @@ class Attack2:
             )
 
 
-
 class Guard:
-
     def __init__(self, dororo):
         self.dororo = dororo
         self.frame = 0.0
@@ -426,7 +428,7 @@ class Guard:
     def enter(self, e):
         self.frame = 0.0
         self.frame_count = SPRITE['guard']['frames']
-        self.dororo.dir = 0  # 가드 중엔 이동 안 함
+        self.dororo.dir = 0
 
     def exit(self, e):
         pass
@@ -449,9 +451,7 @@ class Guard:
         )
 
 
-
 class Jump:
-
     def __init__(self, dororo):
         self.dororo = dororo
         self.frame = 0.0
@@ -471,7 +471,6 @@ class Jump:
         pass
 
     def do(self):
-
         self.frame = (self.frame + self.anim_speed) % self.frame_count
 
         self.dororo.y += self.dororo.vy
@@ -496,7 +495,6 @@ class Jump:
 
 
 class Fall:
-
     def __init__(self, dororo):
         self.dororo = dororo
         self.frame = 0.0
@@ -542,10 +540,7 @@ class Fall:
         )
 
 
-
-
 class Skill:
-
     def __init__(self, dororo):
         self.dororo = dororo
         self.frame = 0.0
@@ -557,7 +552,7 @@ class Skill:
         self.anim_speed = 0.08
         self.finished = False
 
-        self.hold_time = 0.35
+        self.hold_time = 0.5
         self.hold_timer = 0.0
 
     def enter(self, e):
@@ -565,10 +560,8 @@ class Skill:
         self.finished = False
         self.hold_timer = 0.0
 
-        if self.dororo.face_dir != 0:
-            self.dororo.dir = self.dororo.face_dir
-
-        self.move_during_skill = (self.dororo.dir != 0)
+        self.dororo.dir = 0
+        self.move_during_skill = False
 
     def exit(self, e):
         self.dororo.dir = 0
@@ -577,10 +570,6 @@ class Skill:
         if not self.finished:
             self.frame += self.anim_speed
 
-            if self.move_during_skill:
-                self.dororo.x += self.dororo.dir * self.SPEED
-                self.dororo.x = max(50, min(1550, self.dororo.x))
-
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
                 self.finished = True
@@ -588,10 +577,7 @@ class Skill:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.dororo.dir != 0:
-                    self.dororo.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.dororo._ensure_image()
@@ -612,10 +598,7 @@ class Skill:
         )
 
 
-
-# 숫자 2 스킬 상태
 class Skill2:
-
     def __init__(self, dororo):
         self.dororo = dororo
         self.frame = 0.0
@@ -627,7 +610,7 @@ class Skill2:
         self.anim_speed = 0.08
         self.finished = False
 
-        self.hold_time = 0.35
+        self.hold_time = 0.5
         self.hold_timer = 0.0
 
     def enter(self, e):
@@ -635,10 +618,8 @@ class Skill2:
         self.finished = False
         self.hold_timer = 0.0
 
-        if self.dororo.face_dir != 0:
-            self.dororo.dir = self.dororo.face_dir
-
-        self.move_during_skill = (self.dororo.dir != 0)
+        self.dororo.dir = 0
+        self.move_during_skill = False
 
     def exit(self, e):
         self.dororo.dir = 0
@@ -647,10 +628,6 @@ class Skill2:
         if not self.finished:
             self.frame += self.anim_speed
 
-            if self.move_during_skill:
-                self.dororo.x += self.dororo.dir * self.SPEED
-                self.dororo.x = max(50, min(1550, self.dororo.x))
-
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
                 self.finished = True
@@ -658,10 +635,7 @@ class Skill2:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.dororo.dir != 0:
-                    self.dororo.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.dororo._ensure_image()
@@ -682,9 +656,7 @@ class Skill2:
         )
 
 
-
 class Skill3:
-
     def __init__(self, dororo):
         self.dororo = dororo
         self.frame = 0.0
@@ -699,8 +671,7 @@ class Skill3:
         self.hold_time = 0.35
         self.hold_timer = 0.0
 
-        # 첫 동작(프레임 0)을 얼마나 보여줄지
-        self.start_hold_time = 0.15   # 0.15초 정도 시전 준비 포즈 유지
+        self.start_hold_time = 0.15
         self.start_timer = 0.0
 
     def enter(self, e):
@@ -708,32 +679,21 @@ class Skill3:
         self.finished = False
         self.hold_timer = 0.0
 
-        # 타이머 초기화
         self.start_timer = 0.0
 
-        if self.dororo.face_dir != 0:
-            self.dororo.dir = self.dororo.face_dir
-
-        self.move_during_skill = (self.dororo.dir != 0)
+        self.dororo.dir = 0
+        self.move_during_skill = False
 
     def exit(self, e):
         self.dororo.dir = 0
 
     def do(self):
         if not self.finished:
-
-            # 여기서 일정 시간 동안 0번 프레임 고정
             if self.start_timer < self.start_hold_time:
                 self.start_timer += game_framework.frame_time
-                # frame은 0 그대로 두고, 아래 코드 실행 안 함
                 return
 
-            # 그 다음부터 프레임을 넘기기 시작
             self.frame += self.anim_speed
-
-            if self.move_during_skill:
-                self.dororo.x += self.dororo.dir * self.SPEED
-                self.dororo.x = max(50, min(1550, self.dororo.x))
 
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
@@ -742,10 +702,7 @@ class Skill3:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.dororo.dir != 0:
-                    self.dororo.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.dororo._ensure_image()
@@ -766,9 +723,6 @@ class Skill3:
         )
 
 
-# ---------------------------
-# Dororo 본체
-# ---------------------------
 class Dororo:
     def __init__(self):
         self.x, self.y = 400, 90
@@ -779,99 +733,83 @@ class Dororo:
         self.vy = 0.0
         self.ground_y = 90
 
-        self.image_name = 'Dororo_Sheet.png'   # 필요하면 파일 이름 수정해서 사용
+        self.image_name = 'Dororo_Sheet.png'
         self.image = None
 
-        # 상태 인스턴스
-        self.IDLE        = Idle(self)
-        self.RUN         = Run(self)
-        self.ATTACK      = Attack(self)
-        self.ATTACK2     = Attack2(self)
-        self.GUARD       = Guard(self)
-        self.JUMP        = Jump(self)
-        self.FALL        = Fall(self)
-        self.SKILL       = Skill(self)    # 1번 스킬
-        self.SKILL2      = Skill2(self)   # 2번 스킬
-        self.SKILL3      = Skill3(self)   # 3번 스킬
+        self.IDLE    = Idle(self)
+        self.RUN     = Run(self)
+        self.ATTACK  = Attack(self)
+        self.ATTACK2 = Attack2(self)
+        self.GUARD   = Guard(self)
+        self.JUMP    = Jump(self)
+        self.FALL    = Fall(self)
+        self.SKILL   = Skill(self)
+        self.SKILL2  = Skill2(self)
+        self.SKILL3  = Skill3(self)
 
         self.state_machine = StateMachine(
             self.IDLE,
             {
-
-                # Idle 상태
                 self.IDLE: {
-                    right_down:     self.RUN,
-                    left_down:      self.RUN,
-                    a_down:         self.GUARD,
-                    s_down:         self.ATTACK,
-                    d_down:         self.ATTACK2,
-                    space_down:     self.JUMP,
-                    skill_down:     self.SKILL,     # 1
-                    skill2_down:    self.SKILL2,    # 2
-                    skill3_down:    self.SKILL3,    # 3
+                    right_down:  self.RUN,
+                    left_down:   self.RUN,
+                    a_down:      self.GUARD,
+                    s_down:      self.ATTACK,
+                    d_down:      self.ATTACK2,
+                    space_down:  self.JUMP,
+                    skill_down:  self.SKILL,
+                    skill2_down: self.SKILL2,
+                    skill3_down: self.SKILL3,
                 },
 
-                # Run 상태
                 self.RUN: {
-                    right_up:       self.IDLE,
-                    left_up:        self.IDLE,
-                    right_down:     self.RUN,
-                    left_down:      self.RUN,
-                    a_down:         self.GUARD,
-                    s_down:         self.ATTACK,
-                    d_down:         self.ATTACK2,
-                    space_down:     self.JUMP,
-                    skill_down:     self.SKILL,
-                    skill2_down:    self.SKILL2,
-                    skill3_down:    self.SKILL3,
+                    right_up:    self.IDLE,
+                    left_up:     self.IDLE,
+                    right_down:  self.RUN,
+                    left_down:   self.RUN,
+                    a_down:      self.GUARD,
+                    s_down:      self.ATTACK,
+                    d_down:      self.ATTACK2,
+                    space_down:  self.JUMP,
+                    skill_down:  self.SKILL,
+                    skill2_down: self.SKILL2,
+                    skill3_down: self.SKILL3,
                 },
 
-                # Attack 끝나면 Idle/Run
                 self.ATTACK: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.RUN,
                 },
 
-                # Attack2 끝나면 Idle/Run
                 self.ATTACK2: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.RUN,
                 },
 
-                # Guard 상태
                 self.GUARD: {
-                    a_up:           self.IDLE,
+                    a_up: self.IDLE,
                 },
 
-                # Jump 상태
                 self.JUMP: {
-                    jump_to_fall:   self.FALL,
+                    jump_to_fall: self.FALL,
                 },
 
-                # Fall 상태
                 self.FALL: {
-                    land_idle:      self.IDLE,
-                    land_run:       self.RUN,
+                    land_idle: self.IDLE,
+                    land_run:  self.RUN,
                 },
 
-                # Skill1 상태
                 self.SKILL: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
                 },
 
-                # Skill2 상태
                 self.SKILL2: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
                 },
 
-                # Skill3 상태
                 self.SKILL3: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
                 },
-
             }
         )
 
