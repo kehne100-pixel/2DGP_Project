@@ -727,9 +727,7 @@ class Skill3:
         )
 
 
-# ---------------------------
-# Tamama 본체
-# ---------------------------
+
 class Tamama:
     def __init__(self):
         self.x, self.y = 400, 90
