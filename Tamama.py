@@ -16,23 +16,20 @@ def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].
 def right_up(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_RIGHT
 def left_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_LEFT
 def left_up(e):    return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_LEFT
-def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a   # Guard 시작
-def a_up(e):       return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_a   # Guard 해제
-def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s   # Attack
-def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d   # Attack2
-def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE  # 점프
+def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a
+def a_up(e):       return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_a
+def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s
+def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d
+def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE
 def Time_out(e):   return e[0] == 'TIME_OUT'
 def attack_done_idle(e): return e[0] == 'ATTACK_DONE_IDLE'
 def attack_done_run(e):  return e[0] == 'ATTACK_DONE_RUN'
-def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'   # Jump → Fall
-def land_idle(e):    return e[0] == 'LAND_IDLE'      # Fall → Idle
-def land_run(e):     return e[0] == 'LAND_RUN'       # Fall → Run
-
+def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'
+def land_idle(e):    return e[0] == 'LAND_IDLE'
+def land_run(e):     return e[0] == 'LAND_RUN'
 
 def skill_down(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_1
-# 숫자 2 키 스킬2
 def skill2_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_2
-# 숫자 3 키 스킬3
 def skill3_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_3
 
 
@@ -73,7 +70,6 @@ SPRITE = {
             (213,   1920, 38, 55),
             (271,  1920, 59, 53),
             (339, 1920, 61, 53),
-
         ],
         'frames': 4,
         'flip_when_left': True
@@ -135,13 +131,11 @@ SPRITE = {
             (212, 1769, 37, 55),
             (275, 1770, 59, 69),
             (343, 1770, 56, 50),
-
         ],
         'frames': 6,
         'flip_when_left': True
     },
 
-    # 스킬2
     'skill2': {
         'rects': [
             (253, 285, 71, 47),
@@ -153,7 +147,6 @@ SPRITE = {
             (736, 285, 50, 51),
             (818, 286, 58, 61),
             (900, 285, 36, 62),
-
         ],
         'frames': 9,
         'flip_when_left': True
@@ -193,7 +186,6 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
         image.clip_draw(sx, sy, CELL_W, CELL_H, x, y, draw_w, draw_h)
 
 
-
 idle_time_per_action = 0.5
 idle_action_per_time = 1.0 / idle_time_per_action
 idle_frames_per_action = 4
@@ -203,7 +195,6 @@ Run_time_per_action = 0.5
 Run_action_per_time = 1.0 / Run_time_per_action
 Run_frames_per_action = 4
 Run_frame_per_second = Run_frames_per_action * Run_action_per_time
-
 
 
 class Idle:
@@ -279,30 +270,19 @@ class Run:
         )
 
 
-
-
 class Attack:
     def __init__(self, tamama):
         self.tamama = tamama
 
-        # ★ 프레임 개수 (스프라이트 설정 그대로)
         self.frame_count = SPRITE['attack']['frames']
-
-        # ★ 각 프레임이 유지되는 시간 (초)
-        #   0: 준비 동작(살짝 길게)
-        #   1: 휘두르는 동작(빠르게)
-        #   2: 맞는 순간(히트 스톱 느낌으로 조금 멈춤)
-        #   3: 마무리(조금 길게)
         self.frame_durations = [0.16, 0.06, 0.12, 0.18]
 
-        self.frame = 0           # 현재 프레임 인덱스(정수)
-        self.timer = 0.0         # 현재 프레임에서 경과 시간
-
+        self.frame = 0
+        self.timer = 0.0
 
         self.SPEED = 7
         self.move_during_attack = False
 
-        # 공격 끝난 뒤 잠깐 유지 시간
         self.finished = False
         self.hold_time = 0.15
         self.hold_timer = 0.0
@@ -313,7 +293,6 @@ class Attack:
         self.finished = False
         self.hold_timer = 0.0
 
-        # 공격 시작할 때 움직이고 있었다면 "이동 공격"
         self.move_during_attack = (self.tamama.dir != 0)
 
     def exit(self, e):
@@ -321,23 +300,18 @@ class Attack:
 
     def do(self):
         if not self.finished:
-            # 현재 프레임에서 시간 누적
             self.timer += game_framework.frame_time
 
-            # 현재 프레임이 설정된 시간만큼 지났으면 다음 프레임으로
             if self.timer >= self.frame_durations[self.frame]:
                 self.timer -= self.frame_durations[self.frame]
                 self.frame += 1
 
-                # 마지막 프레임까지 재생했으면 종료 처리
                 if self.frame >= self.frame_count:
                     self.frame = self.frame_count - 1
                     self.finished = True
                     return
 
-
             if self.move_during_attack:
-
                 if self.frame == 0:
                     dx = self.tamama.dir * (self.SPEED * 0.3)
                 elif self.frame == 1:
@@ -349,9 +323,7 @@ class Attack:
 
                 self.tamama.x += dx
                 self.tamama.x = max(50, min(1550, self.tamama.x))
-
         else:
-            # 공격 끝난 뒤 마지막 포즈 유지 시간
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
@@ -373,8 +345,6 @@ class Attack:
             self.tamama.y,
             110, 110
         )
-
-
 
 
 class Attack2:
@@ -448,9 +418,7 @@ class Attack2:
             )
 
 
-
 class Guard:
-
     def __init__(self, tamama):
         self.tamama = tamama
         self.frame = 0.0
@@ -460,7 +428,7 @@ class Guard:
     def enter(self, e):
         self.frame = 0.0
         self.frame_count = SPRITE['guard']['frames']
-        self.tamama.dir = 0  # 가드 중엔 이동 안 함
+        self.tamama.dir = 0
 
     def exit(self, e):
         pass
@@ -483,9 +451,7 @@ class Guard:
         )
 
 
-
 class Jump:
-
     def __init__(self, tamama):
         self.tamama = tamama
         self.frame = 0.0
@@ -505,7 +471,6 @@ class Jump:
         pass
 
     def do(self):
-
         self.frame = (self.frame + self.anim_speed) % self.frame_count
 
         self.tamama.y += self.tamama.vy
@@ -530,7 +495,6 @@ class Jump:
 
 
 class Fall:
-
     def __init__(self, tamama):
         self.tamama = tamama
         self.frame = 0.0
@@ -576,10 +540,7 @@ class Fall:
         )
 
 
-
-
 class Skill:
-
     def __init__(self, tamama):
         self.tamama = tamama
         self.frame = 0.0
@@ -603,12 +564,10 @@ class Skill:
         self.move_during_skill = False
 
     def exit(self, e):
-
         self.tamama.dir = 0
 
     def do(self):
         if not self.finished:
-
             self.frame += self.anim_speed
 
             if self.frame >= self.frame_count:
@@ -618,10 +577,7 @@ class Skill:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.tamama.dir != 0:
-                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.tamama._ensure_image()
@@ -642,11 +598,7 @@ class Skill:
         )
 
 
-
-
-# 숫자 2 스킬 상태
 class Skill2:
-
     def __init__(self, tamama):
         self.tamama = tamama
         self.frame = 0.0
@@ -655,11 +607,9 @@ class Skill2:
         self.SPEED = 3
         self.move_during_skill = False
 
-        # ★ 애니메이션 속도 (필요하면 0.08 → 0.06 정도로 더 느리게도 가능)
         self.anim_speed = 0.08
         self.finished = False
 
-        # ★ 마지막 프레임 유지 시간 (조금 늘려서 끝까지 다 보이게)
         self.hold_time = 0.5
         self.hold_timer = 0.0
 
@@ -668,29 +618,23 @@ class Skill2:
         self.finished = False
         self.hold_timer = 0.0
 
-        # ★ 제자리에서만 스킬 사용
         self.tamama.dir = 0
         self.move_during_skill = False
 
     def exit(self, e):
-        # 스킬 끝난 후에도 이동 방향 0
         self.tamama.dir = 0
 
     def do(self):
         if not self.finished:
-            # 프레임만 진행, 위치는 고정
             self.frame += self.anim_speed
 
-            # 마지막 프레임까지 다 보여주고 나서 finished 설정
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
                 self.finished = True
         else:
-            # 마지막 프레임 유지(hold_time만큼)
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                # 어차피 dir = 0이니까 Idle로 복귀
                 self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
@@ -712,10 +656,7 @@ class Skill2:
         )
 
 
-
-
 class Skill3:
-
     def __init__(self, tamama):
         self.tamama = tamama
         self.frame = 0.0
@@ -730,8 +671,7 @@ class Skill3:
         self.hold_time = 0.35
         self.hold_timer = 0.0
 
-        # ★ 첫 동작(프레임 0)을 얼마나 보여줄지
-        self.start_hold_time = 0.15   # 0.15초 정도 시전 준비 포즈 유지
+        self.start_hold_time = 0.15
         self.start_timer = 0.0
 
     def enter(self, e):
@@ -739,7 +679,6 @@ class Skill3:
         self.finished = False
         self.hold_timer = 0.0
 
-        # ★ 타이머 초기화
         self.start_timer = 0.0
 
         if self.tamama.face_dir != 0:
@@ -752,14 +691,10 @@ class Skill3:
 
     def do(self):
         if not self.finished:
-
-            # ★ 여기서 일정 시간 동안 0번 프레임 고정
             if self.start_timer < self.start_hold_time:
                 self.start_timer += game_framework.frame_time
-                # frame은 0 그대로 두고, 아래 코드 실행 안 함
                 return
 
-            # 그 다음부터 프레임을 넘기기 시작
             self.frame += self.anim_speed
 
             if self.move_during_skill:
@@ -772,11 +707,9 @@ class Skill3:
         else:
             self.hold_timer += game_framework.frame_time
 
+            # ★ 스킬2와 같은 원리: 항상 Idle 로만 복귀
             if self.hold_timer >= self.hold_time:
-                if self.tamama.dir != 0:
-                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.tamama._ensure_image()
@@ -813,96 +746,81 @@ class Tamama:
         self.image_name = 'Tamama_Sheet.png'
         self.image = None
 
-        # 상태 인스턴스
-        self.IDLE        = Idle(self)
-        self.RUN         = Run(self)
-        self.ATTACK      = Attack(self)
-        self.ATTACK2     = Attack2(self)
-        self.GUARD       = Guard(self)
-        self.JUMP        = Jump(self)
-        self.FALL        = Fall(self)
-        self.SKILL       = Skill(self)    # 1번 스킬
-        self.SKILL2      = Skill2(self)   # 2번 스킬
-        self.SKILL3      = Skill3(self)   # 3번 스킬
+        self.IDLE   = Idle(self)
+        self.RUN    = Run(self)
+        self.ATTACK = Attack(self)
+        self.ATTACK2 = Attack2(self)
+        self.GUARD  = Guard(self)
+        self.JUMP   = Jump(self)
+        self.FALL   = Fall(self)
+        self.SKILL  = Skill(self)
+        self.SKILL2 = Skill2(self)
+        self.SKILL3 = Skill3(self)
 
         self.state_machine = StateMachine(
             self.IDLE,
             {
-
-                # Idle 상태
                 self.IDLE: {
-                    right_down:     self.RUN,
-                    left_down:      self.RUN,
-                    a_down:         self.GUARD,
-                    s_down:         self.ATTACK,
-                    d_down:         self.ATTACK2,
-                    space_down:     self.JUMP,
-                    skill_down:     self.SKILL,     # 1
-                    skill2_down:    self.SKILL2,    # 2
-                    skill3_down:    self.SKILL3,    # 3
+                    right_down:  self.RUN,
+                    left_down:   self.RUN,
+                    a_down:      self.GUARD,
+                    s_down:      self.ATTACK,
+                    d_down:      self.ATTACK2,
+                    space_down:  self.JUMP,
+                    skill_down:  self.SKILL,
+                    skill2_down: self.SKILL2,
+                    skill3_down: self.SKILL3,
                 },
 
-                # Run 상태
                 self.RUN: {
-                    right_up:       self.IDLE,
-                    left_up:        self.IDLE,
-                    right_down:     self.RUN,
-                    left_down:      self.RUN,
-                    a_down:         self.GUARD,
-                    s_down:         self.ATTACK,
-                    d_down:         self.ATTACK2,
-                    space_down:     self.JUMP,
-                    skill_down:     self.SKILL,
-                    skill2_down:    self.SKILL2,
-                    skill3_down:    self.SKILL3,
+                    right_up:    self.IDLE,
+                    left_up:     self.IDLE,
+                    right_down:  self.RUN,
+                    left_down:   self.RUN,
+                    a_down:      self.GUARD,
+                    s_down:      self.ATTACK,
+                    d_down:      self.ATTACK2,
+                    space_down:  self.JUMP,
+                    skill_down:  self.SKILL,
+                    skill2_down: self.SKILL2,
+                    skill3_down: self.SKILL3,
                 },
 
-                # Attack 끝나면 Idle/Run
                 self.ATTACK: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.RUN,
                 },
 
-                # Attack2 끝나면 Idle/Run
                 self.ATTACK2: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.RUN,
                 },
 
-                # Guard 상태
                 self.GUARD: {
-                    a_up:           self.IDLE,
+                    a_up: self.IDLE,
                 },
 
-                # Jump 상태
                 self.JUMP: {
-                    jump_to_fall:   self.FALL,
+                    jump_to_fall: self.FALL,
                 },
 
-                # Fall 상태
                 self.FALL: {
-                    land_idle:      self.IDLE,
-                    land_run:       self.RUN,
+                    land_idle: self.IDLE,
+                    land_run:  self.RUN,
                 },
 
-                # Skill1 상태
                 self.SKILL: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
                 },
 
-                # Skill2 상태
                 self.SKILL2: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
                 },
 
-                # Skill3 상태
+                # ★ Skill3도 Skill2처럼 항상 Idle 로
                 self.SKILL3: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
                 },
-
             }
         )
 
