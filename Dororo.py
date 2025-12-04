@@ -111,7 +111,7 @@ SPRITE = {
             (738, 2366, 51, 52),
             (806, 2369, 47, 46),
         ],
-        'frames': 13,
+        'frames': 5,
         'flip_when_left': True
     },
 
