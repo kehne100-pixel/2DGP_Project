@@ -334,12 +334,9 @@ class Attack:
                     self.finished = True
                     return
 
-            # ★ 프레임에 따라 이동 다르게 주기
+
             if self.move_during_attack:
-                # 0: 준비 동작 → 살짝 앞으로
-                # 1: 휘두르는 동작 → 앞으로 많이
-                # 2: 히트 스톱 → 거의 안 움직임
-                # 3: 후딜 → 안 움직임
+
                 if self.frame == 0:
                     dx = self.tamama.dir * (self.SPEED * 0.3)
                 elif self.frame == 1:
