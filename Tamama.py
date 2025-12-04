@@ -73,7 +73,7 @@ SPRITE = {
             (213,   1920, 38, 55),
             (271,  1920, 59, 53),
             (339, 1920, 61, 53),
-            (405, 1920, 37, 55),
+
         ],
         'frames': 4,
         'flip_when_left': True
@@ -283,23 +283,36 @@ class Run:
 class Attack:
     def __init__(self, tamama):
         self.tamama = tamama
-        self.frame = 0.0
+
+        # ★ 프레임 개수 (스프라이트 설정 그대로)
         self.frame_count = SPRITE['attack']['frames']
 
-        self.SPEED = 8
+        # ★ 각 프레임이 유지되는 시간 (초)
+        #   0: 준비 동작(살짝 길게)
+        #   1: 휘두르는 동작(빠르게)
+        #   2: 맞는 순간(히트 스톱 느낌으로 조금 멈춤)
+        #   3: 마무리(조금 길게)
+        self.frame_durations = [0.16, 0.06, 0.12, 0.18]
+
+        self.frame = 0           # 현재 프레임 인덱스(정수)
+        self.timer = 0.0         # 현재 프레임에서 경과 시간
+
+        # 이동 관련
+        self.SPEED = 7
         self.move_during_attack = False
 
-        self.anim_speed = 0.08
+        # 공격 끝난 뒤 잠깐 유지 시간
         self.finished = False
-
         self.hold_time = 0.15
         self.hold_timer = 0.0
 
     def enter(self, e):
-        self.frame = 0.0
+        self.frame = 0
+        self.timer = 0.0
         self.finished = False
         self.hold_timer = 0.0
 
+        # 공격 시작할 때 움직이고 있었다면 "이동 공격"
         self.move_during_attack = (self.tamama.dir != 0)
 
     def exit(self, e):
@@ -307,17 +320,40 @@ class Attack:
 
     def do(self):
         if not self.finished:
+            # 현재 프레임에서 시간 누적
+            self.timer += game_framework.frame_time
 
-            self.frame += self.anim_speed
+            # 현재 프레임이 설정된 시간만큼 지났으면 다음 프레임으로
+            if self.timer >= self.frame_durations[self.frame]:
+                self.timer -= self.frame_durations[self.frame]
+                self.frame += 1
 
+                # 마지막 프레임까지 재생했으면 종료 처리
+                if self.frame >= self.frame_count:
+                    self.frame = self.frame_count - 1
+                    self.finished = True
+                    return
+
+            # ★ 프레임에 따라 이동 다르게 주기
             if self.move_during_attack:
-                self.tamama.x += self.tamama.dir * self.SPEED
+                # 0: 준비 동작 → 살짝 앞으로
+                # 1: 휘두르는 동작 → 앞으로 많이
+                # 2: 히트 스톱 → 거의 안 움직임
+                # 3: 후딜 → 안 움직임
+                if self.frame == 0:
+                    dx = self.tamama.dir * (self.SPEED * 0.3)
+                elif self.frame == 1:
+                    dx = self.tamama.dir * (self.SPEED * 1.0)
+                elif self.frame == 2:
+                    dx = self.tamama.dir * (self.SPEED * 0.1)
+                else:
+                    dx = 0
+
+                self.tamama.x += dx
                 self.tamama.x = max(50, min(1550, self.tamama.x))
 
-            if self.frame >= self.frame_count:
-                self.frame = self.frame_count - 1
-                self.finished = True
         else:
+            # 공격 끝난 뒤 마지막 포즈 유지 시간
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
@@ -339,6 +375,8 @@ class Attack:
             self.tamama.y,
             100, 100
         )
+
+
 
 
 class Attack2:
