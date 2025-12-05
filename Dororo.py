@@ -81,7 +81,6 @@ SPRITE = {
             (4, 2514, 41, 50),
             (48, 2514, 64, 54),
             (120, 2514, 53, 56),
-
         ],
         'frames': 3,
         'flip_when_left': True
@@ -317,7 +316,6 @@ class Attack:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                # ★ 항상 Idle 로
                 self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
@@ -375,7 +373,6 @@ class Attack2:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                # ★ Attack2도 항상 Idle 로
                 self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
@@ -532,13 +529,13 @@ class Skill:
         self.frame = 0.0
         self.frame_count = SPRITE['skill']['frames']
 
-        # 🔥 달리면서 나가는 스킬 속도 (크게 할수록 더 멀리 전진)
-        self.RUN_SPEED = 4.0   # 필요하면 5.0, 6.0 으로 더 올려봐도 됨
+        # 🔥 달리면서 나가는 스킬1 속도
+        self.RUN_SPEED = 4.0
 
         self.anim_speed = 0.06
         self.finished = False
 
-        self.hold_time = 0.4      # 스킬 끝나고 살짝 멈춰주는 시간
+        self.hold_time = 0.4
         self.hold_timer = 0.0
 
         self.move_during_skill = False
@@ -548,37 +545,30 @@ class Skill:
         self.finished = False
         self.hold_timer = 0.0
 
-   
         if self.dororo.dir == 0:
-            # 안 움직이고 있었으면 바라보는 방향으로 움직이게
             if self.dororo.face_dir != 0:
                 self.dororo.dir = self.dororo.face_dir
             else:
-                self.dororo.dir = 1  # 혹시 face_dir이 0이면 기본 오른쪽
+                self.dororo.dir = 1
 
         self.move_during_skill = True
 
     def exit(self, e):
-        # 스킬 끝나면 멈추고 Idle로 돌아가니까 방향 0
         self.dororo.dir = 0
         self.move_during_skill = False
 
     def do(self):
         if not self.finished:
-            # ⭐ 스킬 애니메이션 진행되는 동안 계속 앞으로 달리는 느낌
             if self.move_during_skill:
                 self.dororo.x += self.dororo.dir * self.RUN_SPEED
                 self.dororo.x = max(50, min(1550, self.dororo.x))
 
-            # 애니메이션 프레임 진행
             self.frame += self.anim_speed
 
-            # 애니메이션이 끝까지 재생되면 finished 처리
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
                 self.finished = True
         else:
-            # 마지막 포즈 잠깐 유지 후 Idle 로 복귀
             self.hold_timer += game_framework.frame_time
             if self.hold_timer >= self.hold_time:
                 self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
@@ -602,44 +592,58 @@ class Skill:
         )
 
 
-
-
 class Skill2:
     def __init__(self, dororo):
         self.dororo = dororo
         self.frame = 0.0
         self.frame_count = SPRITE['skill2']['frames']
 
-        self.SPEED = 3
-        self.move_during_skill = False
+        # 🔥 스킬1과 같은 "달리면서 나가는" 느낌
+        self.RUN_SPEED = 4.0     # 필요하면 5.0, 6.0 으로 변경 가능
 
-        self.anim_speed = 0.08
+        self.anim_speed = 0.06   # 스킬1과 동일한 프레임 속도
         self.finished = False
 
-        self.hold_time = 0.5
+        self.hold_time = 0.4     # 끝 포즈 살짝 유지
         self.hold_timer = 0.0
+
+        self.move_during_skill = False
 
     def enter(self, e):
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
 
-        self.dororo.dir = 0
-        self.move_during_skill = False
+        # 스킬1과 동일하게, 서있으면 바라보는 방향으로 돌진, 달리고 있으면 그 방향 유지
+        if self.dororo.dir == 0:
+            if self.dororo.face_dir != 0:
+                self.dororo.dir = self.dororo.face_dir
+            else:
+                self.dororo.dir = 1
+
+        self.move_during_skill = True
 
     def exit(self, e):
         self.dororo.dir = 0
+        self.move_during_skill = False
 
     def do(self):
         if not self.finished:
+            # 돌진 이동
+            if self.move_during_skill:
+                self.dororo.x += self.dororo.dir * self.RUN_SPEED
+                self.dororo.x = max(50, min(1550, self.dororo.x))
+
+            # 애니메이션 진행
             self.frame += self.anim_speed
 
+            # 프레임 다 돌면 종료
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
                 self.finished = True
         else:
+            # 마지막 포즈 유지 후 Idle
             self.hold_timer += game_framework.frame_time
-
             if self.hold_timer >= self.hold_time:
                 self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
@@ -784,7 +788,7 @@ class Dororo:
 
                 self.ATTACK: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.IDLE,   # ★ 공격 끝나면 항상 IDLE
+                    attack_done_run:  self.IDLE,
                 },
 
                 self.ATTACK2: {
