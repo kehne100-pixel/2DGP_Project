@@ -67,9 +67,10 @@ SPRITE = {
 
     'attack': {
         'rects': [
-            (213,   1920, 38, 55),
-            (271,  1920, 59, 53),
-            (339, 1920, 61, 53),
+            (0,   2582, 47, 46),
+            (54,  2582, 70, 50),
+            (127, 2582, 54, 50),
+            (186, 2581, 40, 51),
         ],
         'frames': 4,
         'flip_when_left': True
@@ -102,7 +103,6 @@ SPRITE = {
             (87, 2642, 40 ,60),
             (131, 2658, 42, 44),
             (176, 2659, 40, 49),
-
         ],
         'frames': 5,
         'flip_when_left': True
@@ -111,7 +111,6 @@ SPRITE = {
     'fall': {
         'rects': [
             (263, 2639, 42, 68),
-
         ],
         'frames': 1,
         'flip_when_left': True
@@ -321,10 +320,8 @@ class Attack:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.move_during_attack:
-                    self.dororo.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                # ★ 항상 Idle 로
+                self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.dororo._ensure_image()
@@ -381,10 +378,8 @@ class Attack2:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.move_during_attack:
-                    self.dororo.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                # ★ Attack2도 항상 Idle 로
+                self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.dororo._ensure_image()
@@ -772,12 +767,12 @@ class Dororo:
 
                 self.ATTACK: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
+                    attack_done_run:  self.IDLE,   # ★ 공격 끝나면 항상 IDLE
                 },
 
                 self.ATTACK2: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
+                    attack_done_run:  self.IDLE,   # ★ 여기도 항상 IDLE
                 },
 
                 self.GUARD: {
