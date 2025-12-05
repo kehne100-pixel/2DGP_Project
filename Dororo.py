@@ -531,36 +531,55 @@ class Skill:
         self.frame = 0.0
         self.frame_count = SPRITE['skill']['frames']
 
-        self.SPEED = 3
-        self.move_during_skill = False
+        # 🔥 달리면서 나가는 스킬 속도 (크게 할수록 더 멀리 전진)
+        self.RUN_SPEED = 4.0   # 필요하면 5.0, 6.0 으로 더 올려봐도 됨
 
-        self.anim_speed = 0.08
+        self.anim_speed = 0.06
         self.finished = False
 
-        self.hold_time = 0.5
+        self.hold_time = 0.4      # 스킬 끝나고 살짝 멈춰주는 시간
         self.hold_timer = 0.0
+
+        self.move_during_skill = False
 
     def enter(self, e):
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
 
+        # 🔹 방향 유지: 달리다가 쓰면 달리던 방향 그대로,
+        #   제자리에서 쓰면 바라보는 방향(face_dir)으로 살짝 앞으로 이동
+        if self.dororo.dir == 0:
+            # 안 움직이고 있었으면 바라보는 방향으로 움직이게
+            if self.dororo.face_dir != 0:
+                self.dororo.dir = self.dororo.face_dir
+            else:
+                self.dororo.dir = 1  # 혹시 face_dir이 0이면 기본 오른쪽
+
+        self.move_during_skill = True
+
+    def exit(self, e):
+        # 스킬 끝나면 멈추고 Idle로 돌아가니까 방향 0
         self.dororo.dir = 0
         self.move_during_skill = False
 
-    def exit(self, e):
-        self.dororo.dir = 0
-
     def do(self):
         if not self.finished:
+            # ⭐ 스킬 애니메이션 진행되는 동안 계속 앞으로 달리는 느낌
+            if self.move_during_skill:
+                self.dororo.x += self.dororo.dir * self.RUN_SPEED
+                self.dororo.x = max(50, min(1550, self.dororo.x))
+
+            # 애니메이션 프레임 진행
             self.frame += self.anim_speed
 
+            # 애니메이션이 끝까지 재생되면 finished 처리
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
                 self.finished = True
         else:
+            # 마지막 포즈 잠깐 유지 후 Idle 로 복귀
             self.hold_timer += game_framework.frame_time
-
             if self.hold_timer >= self.hold_time:
                 self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
@@ -581,6 +600,8 @@ class Skill:
             skill_draw_w,
             skill_draw_h
         )
+
+
 
 
 class Skill2:
