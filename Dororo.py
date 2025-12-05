@@ -548,8 +548,7 @@ class Skill:
         self.finished = False
         self.hold_timer = 0.0
 
-        # 🔹 방향 유지: 달리다가 쓰면 달리던 방향 그대로,
-        #   제자리에서 쓰면 바라보는 방향(face_dir)으로 살짝 앞으로 이동
+   
         if self.dororo.dir == 0:
             # 안 움직이고 있었으면 바라보는 방향으로 움직이게
             if self.dororo.face_dir != 0:
