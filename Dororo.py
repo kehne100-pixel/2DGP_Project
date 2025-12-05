@@ -772,7 +772,7 @@ class Dororo:
 
                 self.ATTACK2: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.IDLE,   # ★ 여기도 항상 IDLE
+                    attack_done_run:  self.IDLE,
                 },
 
                 self.GUARD: {
