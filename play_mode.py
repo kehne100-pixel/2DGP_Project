@@ -72,7 +72,13 @@ def init():
     if enemy:
         enemy.x, enemy.y = 1200, 90
 
+    # ✅ 3) 적 AI 연결
+    if enemy:
+        enemy_ai = FighterAI(enemy, player)
+    else:
+        enemy_ai = None
 
+    print(f"✅ 플레이어: {player_name},  적: {enemy_name}  — 전투 시작!")
 
 
 def finish():
@@ -87,7 +93,14 @@ def finish():
 
 
 def update():
+    global player, enemy, enemy_ai
 
+    if player:
+        player.update()
+    if enemy:
+        enemy.update()
+    if enemy_ai:
+        enemy_ai.update()   # ✅ AI 동작
 
 
 def draw():
@@ -110,7 +123,18 @@ def draw():
 
 
 def handle_events():
+    global player
+    events = get_events()
+    for e in events:
+        if e.type == SDL_QUIT:
+            game_framework.quit()
+        elif e.type == SDL_KEYDOWN:
+            if e.key == SDLK_ESCAPE:
+                game_framework.quit()
 
+        # ✅ 키보드 입력은 "플레이어"에게만 전달
+        if player:
+            player.handle_event(e)
 
 
 def pause(): pass
