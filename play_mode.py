@@ -1,4 +1,5 @@
 from pico2d import *
+from fight_collision import handle_fight_collision
 import game_framework
 import random
 
@@ -8,7 +9,7 @@ from Tamama import Tamama
 from Giroro import Giroro
 from Kururu import Kururu
 
-from fighter_ai import FighterAI  # ✅ 방금 만든 AI 클래스
+from fighter_ai import FighterAI
 
 background = None
 player = None
@@ -93,14 +94,19 @@ def finish():
 
 
 def update():
-    global player, enemy, enemy_ai
+    def update():
+        global player, enemy, enemy_ai
 
-    if player:
-        player.update()
-    if enemy:
-        enemy.update()
-    if enemy_ai:
-        enemy_ai.update()   # ✅ AI 동작
+        if player:
+            player.update()
+        if enemy:
+            if enemy_ai:
+                enemy_ai.update(player)
+            enemy.update()
+
+        # 🔥 여기서 충돌 처리
+        if player and enemy:
+            handle_fight_collision(player, enemy)
 
 
 def draw():
