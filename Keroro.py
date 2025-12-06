@@ -4,12 +4,15 @@ from sdl2 import (
     SDLK_RIGHT, SDLK_LEFT,
     SDLK_a, SDLK_s, SDLK_d,
     SDLK_SPACE,
-    SDLK_1,          # 숫자 1 키
-    SDLK_2,          # 숫자 2 키 (스킬2)
-    SDLK_3,          # 숫자 3 키 (스킬3)
+    SDLK_1,
+    SDLK_2,
+    SDLK_3,
 )
 import game_framework
 from state_machine import StateMachine
+
+# 🔥 충돌 디버그용
+from fight_collision import DEBUG_COLLISION, draw_bb
 
 
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
@@ -127,7 +130,6 @@ SPRITE = {
         'flip_when_left': True
     },
 
-
     'skill': {
         'rects': [
             (18, 756, 48, 54),
@@ -144,7 +146,6 @@ SPRITE = {
         'flip_when_left': True
     },
 
-    # 스킬2
     'skill2': {
         'rects': [
             (24, 343, 44, 51),
@@ -165,11 +166,9 @@ SPRITE = {
 
     'skill3': {
         'rects': [
-
             (0, 1, 47, 58),
             (80, 3, 63, 47),
             (149, 3, 66, 46),
-
         ],
         'frames': 3,
         'flip_when_left': True
@@ -183,6 +182,7 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
     if 'rects' in cfg:
         frame_idx = int(frame_idx)
         sx, sy, sw, sh = cfg['rects'][frame_idx % len(cfg['rects'])]
+
         if face_dir == -1 and cfg.get('flip_when_left', False):
             image.clip_composite_draw(sx, sy, sw, sh, 0, 'h', x, y, draw_w, draw_h)
         else:
@@ -191,11 +191,11 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
 
     sx = (cfg['start_col'] + frame_idx) * CELL_W
     sy = row_y_from_top(cfg['row'])
+
     if face_dir == -1 and cfg.get('flip_when_left', False):
         image.clip_composite_draw(sx, sy, CELL_W, CELL_H, 0, 'h', x, y, draw_w, draw_h)
     else:
         image.clip_draw(sx, sy, CELL_W, CELL_H, x, y, draw_w, draw_h)
-
 
 
 idle_time_per_action = 0.5
@@ -207,7 +207,6 @@ Run_time_per_action = 0.5
 Run_action_per_time = 1.0 / Run_time_per_action
 Run_frames_per_action = 4
 Run_frame_per_second = Run_frames_per_action * Run_action_per_time
-
 
 
 class Idle:
@@ -283,8 +282,6 @@ class Run:
         )
 
 
-
-
 class Attack:
     def __init__(self, keroro):
         self.keroro = keroro
@@ -312,7 +309,6 @@ class Attack:
 
     def do(self):
         if not self.finished:
-
             self.frame += self.anim_speed
 
             if self.move_during_attack:
@@ -417,9 +413,7 @@ class Attack2:
             )
 
 
-
 class Guard:
-
     def __init__(self, keroro):
         self.keroro = keroro
         self.frame = 0.0
@@ -452,9 +446,7 @@ class Guard:
         )
 
 
-
 class Jump:
-
     def __init__(self, keroro):
         self.keroro = keroro
         self.frame = 0.0
@@ -545,10 +537,7 @@ class Fall:
         )
 
 
-
-
 class Skill:
-
     def __init__(self, keroro):
         self.keroro = keroro
         self.frame = 0.0
@@ -615,10 +604,7 @@ class Skill:
         )
 
 
-
-# 숫자 2 스킬 상태
 class Skill2:
-
     def __init__(self, keroro):
         self.keroro = keroro
         self.frame = 0.0
@@ -685,9 +671,7 @@ class Skill2:
         )
 
 
-
 class Skill3:
-
     def __init__(self, keroro):
         self.keroro = keroro
         self.frame = 0.0
@@ -702,8 +686,7 @@ class Skill3:
         self.hold_time = 0.35
         self.hold_timer = 0.0
 
-        # ★ 첫 동작(프레임 0)을 얼마나 보여줄지
-        self.start_hold_time = 0.15   # 0.15초 정도 시전 준비 포즈 유지
+        self.start_hold_time = 0.15
         self.start_timer = 0.0
 
     def enter(self, e):
@@ -711,7 +694,6 @@ class Skill3:
         self.finished = False
         self.hold_timer = 0.0
 
-        # ★ 타이머 초기화
         self.start_timer = 0.0
 
         if self.keroro.face_dir != 0:
@@ -724,14 +706,10 @@ class Skill3:
 
     def do(self):
         if not self.finished:
-
-            # ★ 여기서 일정 시간 동안 0번 프레임 고정
             if self.start_timer < self.start_hold_time:
                 self.start_timer += game_framework.frame_time
-                # frame은 0 그대로 두고, 아래 코드 실행 안 함
                 return
 
-            # 그 다음부터 프레임을 넘기기 시작
             self.frame += self.anim_speed
 
             if self.move_during_skill:
@@ -784,6 +762,12 @@ class Keroro:
 
         self.image_name = 'Keroro_Sheet.png'
         self.image = None
+
+        # 🔥 HP 및 충돌용 이전 위치
+        self.max_hp = 100
+        self.hp = self.max_hp
+        self.prev_x = self.x
+        self.prev_y = self.y
 
         # 상태 인스턴스
         self.IDLE        = Idle(self)
@@ -878,16 +862,77 @@ class Keroro:
             }
         )
 
+    # === 상태 체크 ===
+    def is_attacking(self):
+        s = self.state_machine.cur_state
+        return s in (self.ATTACK, self.ATTACK2, self.SKILL, self.SKILL2, self.SKILL3)
+
+    # === 몸통 바운딩 박스 ===
+    def get_body_bb(self):
+        # 케로로가 대략 60x70 정도라 가정
+        half_w = 35
+        half_h = 55
+        return (self.x - half_w, self.y - half_h,
+                self.x + half_w, self.y + half_h)
+
+    # === 공격 판정 박스 ===
+    def get_attack_bb(self):
+        if not self.is_attacking():
+            return None
+
+        # 공격 방향에 따른 전방 판정
+        if self.face_dir == 1:
+            left  = self.x
+            right = self.x + 80
+        else:
+            left  = self.x - 80
+            right = self.x
+
+        bottom = self.y - 40
+        top    = self.y + 60
+        return (left, bottom, right, top)
+
+    # === 공격 데미지 ===
+    def get_attack_damage(self):
+        s = self.state_machine.cur_state
+        if s is self.ATTACK:
+            return 7
+        elif s is self.ATTACK2:
+            return 9
+        elif s in (self.SKILL, self.SKILL2):
+            return 15
+        elif s is self.SKILL3:
+            return 22
+        return 0
+
+    # === 피격 ===
+    def take_damage(self, amount):
+        self.hp -= amount
+        if self.hp < 0:
+            self.hp = 0
+        print(f'Keroro hit! hp = {self.hp}')
+
     def _ensure_image(self):
         if self.image is None:
             self.image = load_image(self.image_name)
 
     def update(self):
+        # 몸통 충돌 막기용 이전 위치 저장
+        self.prev_x = self.x
+        self.prev_y = self.y
+
         self.state_machine.update()
 
     def draw(self):
         self._ensure_image()
         self.state_machine.draw()
+
+        # 디버그용 충돌 박스 표시
+        if DEBUG_COLLISION:
+            draw_bb(self.get_body_bb())
+            atk_bb = self.get_attack_bb()
+            if atk_bb:
+                draw_bb(atk_bb)
 
     def handle_event(self, event):
         self.state_machine.handle_state_event(('INPUT', event))
