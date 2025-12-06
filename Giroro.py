@@ -11,8 +11,7 @@ from sdl2 import (
 import game_framework
 from state_machine import StateMachine
 
-# 🔥 충돌 디버그용
-from fight_collision import DEBUG_COLLISION, draw_bb
+import camera  # ✅ 카메라/줌 연동용
 
 
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
@@ -31,8 +30,11 @@ def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'   # Jump → Fall
 def land_idle(e):    return e[0] == 'LAND_IDLE'      # Fall → Idle
 def land_run(e):     return e[0] == 'LAND_RUN'       # Fall → Run
 
+# 숫자 1 키 스킬
 def skill_down(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_1
+# 숫자 2 키 스킬2
 def skill2_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_2
+# 숫자 3 키 스킬3
 def skill3_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_3
 
 
@@ -176,6 +178,7 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
 
     sx = (cfg['start_col'] + frame_idx) * CELL_W
     sy = row_y_from_top(cfg['row'])
+
     if face_dir == -1 and cfg.get('flip_when_left', False):
         image.clip_composite_draw(sx, sy, CELL_W, CELL_H, 0, 'h', x, y, draw_w, draw_h)
     else:
@@ -214,14 +217,17 @@ class Idle:
         self.giroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
+        sx, sy, scale = self.giroro.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.giroro.image,
             'idle',
             idx,
             self.giroro.face_dir,
-            self.giroro.x,
-            self.giroro.y,
-            100, 100
+            sx,
+            sy,
+            100 * scale,
+            100 * scale
         )
 
 
@@ -255,14 +261,18 @@ class Run:
 
     def draw(self):
         self.giroro._ensure_image()
+
+        sx, sy, scale = self.giroro.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.giroro.image,
             'run',
             self.frame,
             self.giroro.face_dir,
-            self.giroro.x,
-            self.giroro.y,
-            100, 100
+            sx,
+            sy,
+            100 * scale,
+            100 * scale
         )
 
 
@@ -316,14 +326,17 @@ class Attack:
         self.giroro._ensure_image()
         idx = int(self.frame)
 
+        sx, sy, scale = self.giroro.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.giroro.image,
             'attack',
             idx,
             self.giroro.face_dir,
-            self.giroro.x,
-            self.giroro.y,
-            100, 100
+            sx,
+            sy,
+            100 * scale,
+            100 * scale
         )
 
 
@@ -376,15 +389,19 @@ class Attack2:
         self.giroro._ensure_image()
         idx = int(self.frame)
 
+        sx, sy, scale = self.giroro.get_screen_pos_and_scale()
+        offset = 50 * scale
+
         if self.giroro.face_dir == -1:
             draw_from_cfg(
                 self.giroro.image,
                 'attack2',
                 idx,
                 self.giroro.face_dir,
-                self.giroro.x - 50,
-                self.giroro.y,
-                110, 100
+                sx - offset,
+                sy,
+                110 * scale,
+                100 * scale
             )
         else:
             draw_from_cfg(
@@ -392,13 +409,15 @@ class Attack2:
                 'attack2',
                 idx,
                 self.giroro.face_dir,
-                self.giroro.x + 50,
-                self.giroro.y,
-                110, 100
+                sx + offset,
+                sy,
+                110 * scale,
+                100 * scale
             )
 
 
 class Guard:
+
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -420,18 +439,22 @@ class Guard:
         self.giroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
+        sx, sy, scale = self.giroro.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.giroro.image,
             'guard',
             idx,
             self.giroro.face_dir,
-            self.giroro.x,
-            self.giroro.y,
-            100, 100
+            sx,
+            sy,
+            100 * scale,
+            100 * scale
         )
 
 
 class Jump:
+
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -464,14 +487,17 @@ class Jump:
         self.giroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
+        sx, sy, scale = self.giroro.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.giroro.image,
             'jump',
             idx,
             self.giroro.face_dir,
-            self.giroro.x,
-            self.giroro.y,
-            100, 100
+            sx,
+            sy,
+            100 * scale,
+            100 * scale
         )
 
 
@@ -511,18 +537,22 @@ class Fall:
         self.giroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
+        sx, sy, scale = self.giroro.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.giroro.image,
             'fall',
             idx,
             self.giroro.face_dir,
-            self.giroro.x,
-            self.giroro.y,
-            100, 100
+            sx,
+            sy,
+            100 * scale,
+            100 * scale
         )
 
 
 class Skill:
+
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -546,6 +576,7 @@ class Skill:
         self.move_during_skill = False
 
     def exit(self, e):
+
         self.giroro.dir = 0
 
     def do(self):
@@ -569,22 +600,26 @@ class Skill:
         self.giroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        skill_draw_w = 110
-        skill_draw_h = 110
+        sx, sy, scale = self.giroro.get_screen_pos_and_scale()
+
+        skill_draw_w = 110 * scale
+        skill_draw_h = 110 * scale
 
         draw_from_cfg(
             self.giroro.image,
             'skill',
             idx,
             self.giroro.face_dir,
-            self.giroro.x,
-            self.giroro.y + 10,
+            sx,
+            sy + 10 * scale,
             skill_draw_w,
             skill_draw_h
         )
 
 
+# 숫자 2 스킬 상태
 class Skill2:
+
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -627,22 +662,25 @@ class Skill2:
         self.giroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        skill_draw_w = 110
-        skill_draw_h = 110
+        sx, sy, scale = self.giroro.get_screen_pos_and_scale()
+
+        skill_draw_w = 110 * scale
+        skill_draw_h = 110 * scale
 
         draw_from_cfg(
             self.giroro.image,
             'skill2',
             idx,
             self.giroro.face_dir,
-            self.giroro.x,
-            self.giroro.y + 10,
+            sx,
+            sy + 10 * scale,
             skill_draw_w,
             skill_draw_h
         )
 
 
 class Skill3:
+
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -657,7 +695,7 @@ class Skill3:
         self.hold_time = 0.35
         self.hold_timer = 0.0
 
-        self.start_hold_time = 0.15   # 0.15초 정도 시전 준비 포즈 유지
+        self.start_hold_time = 0.15   # 0번 프레임 준비 모션 유지 시간
         self.start_timer = 0.0
 
     def enter(self, e):
@@ -704,16 +742,18 @@ class Skill3:
         self.giroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        skill_draw_w = 110
-        skill_draw_h = 110
+        sx, sy, scale = self.giroro.get_screen_pos_and_scale()
+
+        skill_draw_w = 110 * scale
+        skill_draw_h = 110 * scale
 
         draw_from_cfg(
             self.giroro.image,
             'skill3',
             idx,
             self.giroro.face_dir,
-            self.giroro.x,
-            self.giroro.y + 10,
+            sx,
+            sy + 10 * scale,
             skill_draw_w,
             skill_draw_h
         )
@@ -734,12 +774,6 @@ class Giroro:
 
         self.image_name = 'Giroro_Sheet.png'
         self.image = None
-
-        # 🔥 HP, 이전 위치(몸통 충돌용)
-        self.max_hp = 100
-        self.hp = self.max_hp
-        self.prev_x = self.x
-        self.prev_y = self.y
 
         # 상태 인스턴스
         self.IDLE        = Idle(self)
@@ -834,77 +868,22 @@ class Giroro:
             }
         )
 
-    # === 상태 체크 ===
-    def is_attacking(self):
-        s = self.state_machine.cur_state
-        return s in (self.ATTACK, self.ATTACK2, self.SKILL, self.SKILL2, self.SKILL3)
-
-    # === 몸통 바운딩 박스 ===
-    def get_body_bb(self):
-        # 기로로는 키가 중간 정도라 이 정도로 설정
-        half_w = 30
-        half_h = 55
-        return (self.x - half_w, self.y - half_h,
-                self.x + half_w, self.y + half_h)
-
-    # === 공격 판정 박스 ===
-    def get_attack_bb(self):
-        if not self.is_attacking():
-            return None
-
-        if self.face_dir == 1:
-            left  = self.x
-            right = self.x + 85
-        else:
-            left  = self.x - 85
-            right = self.x
-
-        bottom = self.y - 40
-        top    = self.y + 60
-        return (left, bottom, right, top)
-
-    # === 공격 데미지 ===
-    def get_attack_damage(self):
-        s = self.state_machine.cur_state
-        if s is self.ATTACK:
-            return 7
-        elif s is self.ATTACK2:
-            return 9
-        elif s is self.SKILL:
-            return 13
-        elif s is self.SKILL2:
-            return 15
-        elif s is self.SKILL3:
-            return 22
-        return 0
-
-    # === 피격 ===
-    def take_damage(self, amount):
-        self.hp -= amount
-        if self.hp < 0:
-            self.hp = 0
-        print(f'Giroro hit! hp = {self.hp}')
-
     def _ensure_image(self):
         if self.image is None:
             self.image = load_image(self.image_name)
 
-    def update(self):
-        # 몸통 충돌 막기 위해 이전 위치 저장
-        self.prev_x = self.x
-        self.prev_y = self.y
+    # ✅ 카메라 좌표/스케일 계산용 공통 함수
+    def get_screen_pos_and_scale(self):
+        sx, sy = camera.world_to_screen(self.x, self.y)
+        scale = camera.get_zoom()
+        return sx, sy, scale
 
+    def update(self):
         self.state_machine.update()
 
     def draw(self):
         self._ensure_image()
         self.state_machine.draw()
-
-        if DEBUG_COLLISION:
-            draw_bb(self.get_body_bb())
-            atk_bb = self.get_attack_bb()
-            if atk_bb:
-                draw_bb(atk_bb)
 
     def handle_event(self, event):
         self.state_machine.handle_state_event(('INPUT', event))
