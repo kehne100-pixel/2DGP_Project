@@ -1,16 +1,21 @@
 from pico2d import *
 import game_framework
+import random
 
-# 각 캐릭터 모듈 불러오기
 from Keroro import Keroro
 from Dororo import Dororo
 from Tamama import Tamama
 from Giroro import Giroro
 from Kururu import Kururu
 
+from fighter_ai import FighterAI  # ✅ 방금 만든 AI 클래스
+
 background = None
 player = None
-selected_character = 0
+enemy = None
+enemy_ai = None
+
+selected_character = 0  # 플레이어 선택 인덱스
 
 
 # ✅ select_mode에서 전달받을 캐릭터 인덱스
@@ -23,8 +28,24 @@ def set_selected_index(index):
 CHARACTERS = ['Dororo', 'Tamama', 'Keroro', 'Giroro', 'Kururu']
 
 
+def _create_character_by_name(name):
+    if name == 'Keroro':
+        return Keroro()
+    elif name == 'Dororo':
+        return Dororo()
+    elif name == 'Tamama':
+        return Tamama()
+    elif name == 'Giroro':
+        return Giroro()
+    elif name == 'Kururu':
+        return Kururu()
+    else:
+        print("⚠️ 알 수 없는 캐릭터 이름:", name)
+        return None
+
+
 def init():
-    global background, player
+    global background, player, enemy, enemy_ai
 
     try:
         background = load_image('Keroro_background.png')
@@ -32,36 +53,33 @@ def init():
         print("⚠️ 'Keroro_background.png' 파일이 없습니다. 기본 회색 배경으로 대체합니다.")
         background = None
 
-    # ✅ 선택된 캐릭터 인덱스에 맞는 객체 생성
-    name = CHARACTERS[selected_character]
-    if name == 'Keroro':
-        player = Keroro()
-    elif name == 'Dororo':
+    # ✅ 1) 플레이어 캐릭터 생성 (선택된 인덱스 기반)
+    player_name = CHARACTERS[selected_character]
+    player = _create_character_by_name(player_name)
+    if player is None:
+        print("⚠️ 잘못된 캐릭터 인덱스입니다. 기본 Dororo로 설정합니다.")
         player = Dororo()
-    elif name == 'Tamama':
-        player = Tamama()
-    elif name == 'Giroro':
-        player = Giroro()
-    elif name == 'Kururu':
-        player = Kururu()
-    else:
-        print("⚠️ 잘못된 캐릭터 인덱스입니다.")
-        player = None
+        player_name = 'Dororo'
 
-    print(f"✅ {name} 로드 완료 — 전투 시작!")
+    # 위치 지정 (왼쪽)
+    player.x, player.y = 400, 90
+
+
 
 
 def finish():
-    global background, player
+    global background, player, enemy, enemy_ai
     if background:
         del background
     if player:
         del player
+    if enemy:
+        del enemy
+    enemy_ai = None
 
 
 def update():
-    if player:
-        player.update()
+
 
 
 def draw():
@@ -77,24 +95,14 @@ def draw():
     # 캐릭터 애니메이션 그리기
     if player:
         player.draw()
-    else:
-        draw_rectangle(750, 100, 850, 200)
+    if enemy:
+        enemy.draw()
 
     update_canvas()
 
 
 def handle_events():
-    global player
-    events = get_events()
-    for e in events:
-        if e.type == SDL_QUIT:
-            game_framework.quit()
-        elif e.type == SDL_KEYDOWN:
-            if e.key == SDLK_ESCAPE:
-                game_framework.quit()
-        # 캐릭터가 존재하면 이벤트 전달
-        if player:
-            player.handle_event(e)
+
 
 
 def pause(): pass
