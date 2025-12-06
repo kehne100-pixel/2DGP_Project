@@ -1,10 +1,11 @@
 # fight_collision.py
 from pico2d import draw_rectangle
 
-DEBUG_COLLISION = True  # 디버그용 박스 보고 싶지 않으면 False 로
+DEBUG_COLLISION = False  # 디버그용 박스 보고 싶지 않으면 False 로
 
 
 def aabb_collide(bb1, bb2):
+
     if bb1 is None or bb2 is None:
         return False
 
@@ -32,4 +33,15 @@ def handle_fight_collision(player, enemy):
     p_hit_bb = player.get_attack_bb()   # 공격 판정 박스
     e_body_bb = enemy.get_body_bb()    # 적 몸통 박스
 
+    if aabb_collide(p_hit_bb, e_body_bb):
+        # 기본 데미지 값은 캐릭터 안에서 정해두자 (예: 10)
+        dmg = player.get_attack_damage()
+        enemy.take_damage(dmg)
 
+    # 2) 적 공격이 플레이어 몸에 맞았는지
+    e_hit_bb = enemy.get_attack_bb()
+    p_body_bb = player.get_body_bb()
+
+    if aabb_collide(e_hit_bb, p_body_bb):
+        dmg = enemy.get_attack_damage()
+        player.take_damage(dmg)
