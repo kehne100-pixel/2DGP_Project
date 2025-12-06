@@ -11,8 +11,7 @@ from sdl2 import (
 import game_framework
 from state_machine import StateMachine
 
-# 🔥 충돌 디버그용
-from fight_collision import DEBUG_COLLISION, draw_bb
+import camera  # ✅ 카메라/줌 연동용
 
 
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
@@ -74,7 +73,7 @@ SPRITE = {
             (271,  1920, 59, 53),
             (339, 1920, 61, 53),
         ],
-        'frames': 4,   # rect는 3개지만 마지막 프레임은 첫 rect 재사용(현재 구조 유지)
+        'frames': 4,
         'flip_when_left': True
     },
 
@@ -221,14 +220,17 @@ class Idle:
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
+        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.tamama.image,
             'idle',
             idx,
             self.tamama.face_dir,
-            self.tamama.x,
-            self.tamama.y,
-            100, 100
+            sx,
+            sy,
+            100 * scale,
+            100 * scale
         )
 
 
@@ -262,14 +264,18 @@ class Run:
 
     def draw(self):
         self.tamama._ensure_image()
+
+        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.tamama.image,
             'run',
             self.frame,
             self.tamama.face_dir,
-            self.tamama.x,
-            self.tamama.y,
-            100, 100
+            sx,
+            sy,
+            100 * scale,
+            100 * scale
         )
 
 
@@ -339,14 +345,17 @@ class Attack:
         self.tamama._ensure_image()
         idx = int(self.frame)
 
+        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.tamama.image,
             'attack',
             idx,
             self.tamama.face_dir,
-            self.tamama.x,
-            self.tamama.y,
-            110, 110
+            sx,
+            sy,
+            110 * scale,
+            110 * scale
         )
 
 
@@ -399,15 +408,19 @@ class Attack2:
         self.tamama._ensure_image()
         idx = int(self.frame)
 
+        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+        offset = 50 * scale
+
         if self.tamama.face_dir == -1:
             draw_from_cfg(
                 self.tamama.image,
                 'attack2',
                 idx,
                 self.tamama.face_dir,
-                self.tamama.x - 50,
-                self.tamama.y,
-                110, 100
+                sx - offset,
+                sy,
+                110 * scale,
+                100 * scale
             )
         else:
             draw_from_cfg(
@@ -415,9 +428,10 @@ class Attack2:
                 'attack2',
                 idx,
                 self.tamama.face_dir,
-                self.tamama.x + 50,
-                self.tamama.y,
-                110, 100
+                sx + offset,
+                sy,
+                110 * scale,
+                100 * scale
             )
 
 
@@ -443,14 +457,17 @@ class Guard:
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
+        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.tamama.image,
             'guard',
             idx,
             self.tamama.face_dir,
-            self.tamama.x,
-            self.tamama.y,
-            100, 100
+            sx,
+            sy,
+            100 * scale,
+            100 * scale
         )
 
 
@@ -486,14 +503,17 @@ class Jump:
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
+        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.tamama.image,
             'jump',
             idx,
             self.tamama.face_dir,
-            self.tamama.x,
-            self.tamama.y,
-            100, 100
+            sx,
+            sy,
+            100 * scale,
+            100 * scale
         )
 
 
@@ -532,14 +552,17 @@ class Fall:
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
+        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.tamama.image,
             'fall',
             idx,
             self.tamama.face_dir,
-            self.tamama.x,
-            self.tamama.y,
-            100, 100
+            sx,
+            sy,
+            100 * scale,
+            100 * scale
         )
 
 
@@ -586,16 +609,18 @@ class Skill:
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        skill_draw_w = 110
-        skill_draw_h = 110
+        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+
+        skill_draw_w = 110 * scale
+        skill_draw_h = 110 * scale
 
         draw_from_cfg(
             self.tamama.image,
             'skill',
             idx,
             self.tamama.face_dir,
-            self.tamama.x,
-            self.tamama.y + 10,
+            sx,
+            sy + 10 * scale,
             skill_draw_w,
             skill_draw_h
         )
@@ -644,16 +669,18 @@ class Skill2:
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        skill_draw_w = 110
-        skill_draw_h = 110
+        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+
+        skill_draw_w = 110 * scale
+        skill_draw_h = 110 * scale
 
         draw_from_cfg(
             self.tamama.image,
             'skill2',
             idx,
             self.tamama.face_dir,
-            self.tamama.x,
-            self.tamama.y + 10,
+            sx,
+            sy + 10 * scale,
             skill_draw_w,
             skill_draw_h
         )
@@ -711,16 +738,18 @@ class Skill3:
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        skill_draw_w = 110
-        skill_draw_h = 110
+        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+
+        skill_draw_w = 110 * scale
+        skill_draw_h = 110 * scale
 
         draw_from_cfg(
             self.tamama.image,
             'skill3',
             idx,
             self.tamama.face_dir,
-            self.tamama.x,
-            self.tamama.y + 10,
+            sx,
+            sy + 10 * scale,
             skill_draw_w,
             skill_draw_h
         )
@@ -739,22 +768,16 @@ class Tamama:
         self.image_name = 'Tamama_Sheet.png'
         self.image = None
 
-        # 🔥 HP, 이전 위치(몸통 충돌용)
-        self.max_hp = 100
-        self.hp = self.max_hp
-        self.prev_x = self.x
-        self.prev_y = self.y
-
-        self.IDLE   = Idle(self)
-        self.RUN    = Run(self)
-        self.ATTACK = Attack(self)
+        self.IDLE    = Idle(self)
+        self.RUN     = Run(self)
+        self.ATTACK  = Attack(self)
         self.ATTACK2 = Attack2(self)
-        self.GUARD  = Guard(self)
-        self.JUMP   = Jump(self)
-        self.FALL   = Fall(self)
-        self.SKILL  = Skill(self)
-        self.SKILL2 = Skill2(self)
-        self.SKILL3 = Skill3(self)
+        self.GUARD   = Guard(self)
+        self.JUMP    = Jump(self)
+        self.FALL    = Fall(self)
+        self.SKILL   = Skill(self)
+        self.SKILL2  = Skill2(self)
+        self.SKILL3  = Skill3(self)
 
         self.state_machine = StateMachine(
             self.IDLE,
@@ -822,77 +845,22 @@ class Tamama:
             }
         )
 
-    # === 상태 체크 ===
-    def is_attacking(self):
-        s = self.state_machine.cur_state
-        return s in (self.ATTACK, self.ATTACK2, self.SKILL, self.SKILL2, self.SKILL3)
-
-    # === 몸통 바운딩 박스 ===
-    def get_body_bb(self):
-        # 타마마는 케로로보다 조금 작게
-        half_w = 30
-        half_h = 50
-        return (self.x - half_w, self.y - half_h,
-                self.x + half_w, self.y + half_h)
-
-    # === 공격 판정 박스 ===
-    def get_attack_bb(self):
-        if not self.is_attacking():
-            return None
-
-        if self.face_dir == 1:
-            left  = self.x
-            right = self.x + 80
-        else:
-            left  = self.x - 80
-            right = self.x
-
-        bottom = self.y - 40
-        top    = self.y + 60
-        return (left, bottom, right, top)
-
-    # === 공격 데미지 ===
-    def get_attack_damage(self):
-        s = self.state_machine.cur_state
-        if s is self.ATTACK:
-            return 6
-        elif s is self.ATTACK2:
-            return 8
-        elif s is self.SKILL:
-            return 13
-        elif s is self.SKILL2:
-            return 15
-        elif s is self.SKILL3:
-            return 22
-        return 0
-
-    # === 피격 ===
-    def take_damage(self, amount):
-        self.hp -= amount
-        if self.hp < 0:
-            self.hp = 0
-        print(f'Tamama hit! hp = {self.hp}')
-
     def _ensure_image(self):
         if self.image is None:
             self.image = load_image(self.image_name)
 
-    def update(self):
-        # 몸통 충돌 막기 위한 이전 위치 저장
-        self.prev_x = self.x
-        self.prev_y = self.y
 
+    def get_screen_pos_and_scale(self):
+        sx, sy = camera.world_to_screen(self.x, self.y)
+        scale = camera.get_zoom()
+        return sx, sy, scale
+
+    def update(self):
         self.state_machine.update()
 
     def draw(self):
         self._ensure_image()
         self.state_machine.draw()
-
-        if DEBUG_COLLISION:
-            draw_bb(self.get_body_bb())
-            atk_bb = self.get_attack_bb()
-            if atk_bb:
-                draw_bb(atk_bb)
 
     def handle_event(self, event):
         self.state_machine.handle_state_event(('INPUT', event))
