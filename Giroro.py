@@ -11,6 +11,9 @@ from sdl2 import (
 import game_framework
 from state_machine import StateMachine
 
+# 🔥 충돌 디버그용
+from fight_collision import DEBUG_COLLISION, draw_bb
+
 
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
 def right_up(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_RIGHT
@@ -28,11 +31,8 @@ def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'   # Jump → Fall
 def land_idle(e):    return e[0] == 'LAND_IDLE'      # Fall → Idle
 def land_run(e):     return e[0] == 'LAND_RUN'       # Fall → Run
 
-
 def skill_down(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_1
-# 숫자 2 키 스킬2
 def skill2_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_2
-# 숫자 3 키 스킬3
 def skill3_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_3
 
 
@@ -104,8 +104,6 @@ SPRITE = {
             (48, 2369, 52, 59),
             (102, 2367, 50, 61),
             (155, 2368, 51, 57),
-
-
         ],
         'frames': 4,
         'flip_when_left': True
@@ -121,7 +119,6 @@ SPRITE = {
         'frames': 4,
         'flip_when_left': True
     },
-
 
     'skill': {
         'rects': [
@@ -139,7 +136,6 @@ SPRITE = {
         'flip_when_left': True
     },
 
-    # 스킬2
     'skill2': {
         'rects': [
             (0, 1761, 40, 59),
@@ -148,7 +144,6 @@ SPRITE = {
             (158, 1765, 62, 55),
             (223, 1765, 67, 55),
             (295, 1766, 63, 56),
-
         ],
         'frames': 6,
         'flip_when_left': True
@@ -156,11 +151,9 @@ SPRITE = {
 
     'skill3': {
         'rects': [
-
             (228, 2006, 41, 50),
             (271, 2005, 48, 59),
             (321, 2006 ,46, 58),
-
         ],
         'frames': 3,
         'flip_when_left': True
@@ -174,6 +167,7 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
     if 'rects' in cfg:
         frame_idx = int(frame_idx)
         sx, sy, sw, sh = cfg['rects'][frame_idx % len(cfg['rects'])]
+
         if face_dir == -1 and cfg.get('flip_when_left', False):
             image.clip_composite_draw(sx, sy, sw, sh, 0, 'h', x, y, draw_w, draw_h)
         else:
@@ -188,7 +182,6 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
         image.clip_draw(sx, sy, CELL_W, CELL_H, x, y, draw_w, draw_h)
 
 
-
 idle_time_per_action = 0.5
 idle_action_per_time = 1.0 / idle_time_per_action
 idle_frames_per_action = 4
@@ -198,7 +191,6 @@ Run_time_per_action = 0.5
 Run_action_per_time = 1.0 / Run_time_per_action
 Run_frames_per_action = 4
 Run_frame_per_second = Run_frames_per_action * Run_action_per_time
-
 
 
 class Idle:
@@ -272,8 +264,6 @@ class Run:
             self.giroro.y,
             100, 100
         )
-
-
 
 
 class Attack:
@@ -408,9 +398,7 @@ class Attack2:
             )
 
 
-
 class Guard:
-
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -443,9 +431,7 @@ class Guard:
         )
 
 
-
 class Jump:
-
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -536,10 +522,7 @@ class Fall:
         )
 
 
-
-
 class Skill:
-
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -559,20 +542,16 @@ class Skill:
         self.finished = False
         self.hold_timer = 0.0
 
-
         self.giroro.dir = 0
         self.move_during_skill = False
 
     def exit(self, e):
-
         self.giroro.dir = 0
 
     def do(self):
         if not self.finished:
 
             self.frame += self.anim_speed
-
-
 
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
@@ -605,11 +584,7 @@ class Skill:
         )
 
 
-
-
-# 숫자 2 스킬 상태
 class Skill2:
-
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -621,7 +596,7 @@ class Skill2:
         self.anim_speed = 0.08
         self.finished = False
 
-        self.hold_time = 0.35
+        self.hold_time = 0.5
         self.hold_timer = 0.0
 
     def enter(self, e):
@@ -629,10 +604,8 @@ class Skill2:
         self.finished = False
         self.hold_timer = 0.0
 
-        if self.giroro.face_dir != 0:
-            self.giroro.dir = self.giroro.face_dir
-
-        self.move_during_skill = (self.giroro.dir != 0)
+        self.giroro.dir = 0
+        self.move_during_skill = False
 
     def exit(self, e):
         self.giroro.dir = 0
@@ -641,10 +614,6 @@ class Skill2:
         if not self.finished:
             self.frame += self.anim_speed
 
-            if self.move_during_skill:
-                self.giroro.x += self.giroro.dir * self.SPEED
-                self.giroro.x = max(50, min(1550, self.giroro.x))
-
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
                 self.finished = True
@@ -652,10 +621,7 @@ class Skill2:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.giroro.dir != 0:
-                    self.giroro.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.giroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.giroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.giroro._ensure_image()
@@ -676,9 +642,7 @@ class Skill2:
         )
 
 
-
 class Skill3:
-
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -693,7 +657,6 @@ class Skill3:
         self.hold_time = 0.35
         self.hold_timer = 0.0
 
-        # ★ 첫 동작(프레임 0)을 얼마나 보여줄지
         self.start_hold_time = 0.15   # 0.15초 정도 시전 준비 포즈 유지
         self.start_timer = 0.0
 
@@ -702,7 +665,6 @@ class Skill3:
         self.finished = False
         self.hold_timer = 0.0
 
-        # ★ 타이머 초기화
         self.start_timer = 0.0
 
         if self.giroro.face_dir != 0:
@@ -716,13 +678,10 @@ class Skill3:
     def do(self):
         if not self.finished:
 
-            # ★ 여기서 일정 시간 동안 0번 프레임 고정
             if self.start_timer < self.start_hold_time:
                 self.start_timer += game_framework.frame_time
-                # frame은 0 그대로 두고, 아래 코드 실행 안 함
                 return
 
-            # 그 다음부터 프레임을 넘기기 시작
             self.frame += self.anim_speed
 
             if self.move_during_skill:
@@ -775,6 +734,12 @@ class Giroro:
 
         self.image_name = 'Giroro_Sheet.png'
         self.image = None
+
+        # 🔥 HP, 이전 위치(몸통 충돌용)
+        self.max_hp = 100
+        self.hp = self.max_hp
+        self.prev_x = self.x
+        self.prev_y = self.y
 
         # 상태 인스턴스
         self.IDLE        = Idle(self)
@@ -869,16 +834,77 @@ class Giroro:
             }
         )
 
+    # === 상태 체크 ===
+    def is_attacking(self):
+        s = self.state_machine.cur_state
+        return s in (self.ATTACK, self.ATTACK2, self.SKILL, self.SKILL2, self.SKILL3)
+
+    # === 몸통 바운딩 박스 ===
+    def get_body_bb(self):
+        # 기로로는 키가 중간 정도라 이 정도로 설정
+        half_w = 30
+        half_h = 55
+        return (self.x - half_w, self.y - half_h,
+                self.x + half_w, self.y + half_h)
+
+    # === 공격 판정 박스 ===
+    def get_attack_bb(self):
+        if not self.is_attacking():
+            return None
+
+        if self.face_dir == 1:
+            left  = self.x
+            right = self.x + 85
+        else:
+            left  = self.x - 85
+            right = self.x
+
+        bottom = self.y - 40
+        top    = self.y + 60
+        return (left, bottom, right, top)
+
+    # === 공격 데미지 ===
+    def get_attack_damage(self):
+        s = self.state_machine.cur_state
+        if s is self.ATTACK:
+            return 7
+        elif s is self.ATTACK2:
+            return 9
+        elif s is self.SKILL:
+            return 13
+        elif s is self.SKILL2:
+            return 15
+        elif s is self.SKILL3:
+            return 22
+        return 0
+
+    # === 피격 ===
+    def take_damage(self, amount):
+        self.hp -= amount
+        if self.hp < 0:
+            self.hp = 0
+        print(f'Giroro hit! hp = {self.hp}')
+
     def _ensure_image(self):
         if self.image is None:
             self.image = load_image(self.image_name)
 
     def update(self):
+        # 몸통 충돌 막기 위해 이전 위치 저장
+        self.prev_x = self.x
+        self.prev_y = self.y
+
         self.state_machine.update()
 
     def draw(self):
         self._ensure_image()
         self.state_machine.draw()
+
+        if DEBUG_COLLISION:
+            draw_bb(self.get_body_bb())
+            atk_bb = self.get_attack_bb()
+            if atk_bb:
+                draw_bb(atk_bb)
 
     def handle_event(self, event):
         self.state_machine.handle_state_event(('INPUT', event))
