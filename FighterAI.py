@@ -112,6 +112,94 @@ class FighterAI:
         self._stop_move()
         self._send_keydown(SDLK_3)
 
+    # ---------- 메인 업데이트 ----------
+
     def update(self):
+        dt = game_framework.frame_time
 
+        # 가드 유지 시간 관리
+        if self.guard_active:
+            self.guard_timer -= dt
+            if self.guard_timer <= 0:
+                self._stop_guard()
 
+        # 의사결정 쿨타임 관리
+        if self.decision_timer > 0:
+            self.decision_timer -= dt
+            return  # 아직 다음 행동 결정할 시간이 아님
+
+        # 플레이어와의 거리 계산
+        dist = abs(self.player.x - self.enemy.x)
+        # 플레이어가 오른쪽이면 +1, 왼쪽이면 -1
+        direction = 1 if (self.player.x > self.enemy.x) else -1
+
+        # HP / MP 정보 (없으면 기본값으로 처리)
+        hp      = getattr(self.enemy, 'hp', 100)
+        max_hp  = getattr(self.enemy, 'max_hp', 100)
+        mp      = getattr(self.enemy, 'mp', 0)
+        max_mp  = getattr(self.enemy, 'max_mp', 100)
+
+        hp_ratio = hp / max_hp if max_hp > 0 else 1.0
+        mp_full  = (max_mp > 0 and mp >= max_mp)  # "마나가 가득 찼다"는 기준
+
+        # ----------------- 행동 우선순위 로직 -----------------
+        # 1) 거리가 멀면 접근
+        if dist > self.APPROACH_DISTANCE:
+            self._start_move(direction)
+            self.decision_timer = 0.2     # 자주 방향 재확인
+            return
+
+        # 2) 가까운 거리: 공격 / 가드 / 스킬 결정
+        #    - 초반: 공격과 가드 반반
+        #    - 체력 30% 이하: 가드 비율 증가 + 스킬 기회 있으면 활용
+        if hp_ratio > 0.3:
+            # Normal: 공격/가드 50:50 + 가끔 스킬
+            guard_prob = 0.5
+            skill_prob = 0.15   # 마나 풀일 때에만 의미 있음
+        else:
+            # 체력 30% 이하: 가드 늘리고 공격 줄이기
+            guard_prob = 0.65
+            skill_prob = 0.20
+
+        r = random.random()
+
+        # 2-1) 스킬 사용 우선 (마나 가득 찼을 때만)
+        if mp_full:
+            # 스킬3: 필살기, 거리가 좀 떨어져 있어도 맞도록
+            if dist <= self.SKILL3_RANGE and r < skill_prob:
+                self._do_skill3()
+                self.decision_timer = 1.0
+                return
+
+            # 스킬1,2: 근접일 때
+            if dist <= self.CLOSE_RANGE and r < skill_prob:
+                if random.random() < 0.5:
+                    self._do_skill1()
+                else:
+                    self._do_skill2()
+                self.decision_timer = 0.9
+                return
+
+        # 2-2) 가드 / 공격 결정
+        r2 = random.random()
+
+        # 가드는 랜덤하게 가끔 막기 (위에서 guard_prob로 비율 조정)
+        if r2 < guard_prob:
+            # 약 1초 정도 가드 유지
+            self._start_guard(duration=1.0)
+            self.decision_timer = 1.0
+            return
+        else:
+            # 공격1,2 번갈아 사용
+            if dist <= self.CLOSE_RANGE:
+                if self.use_attack1_next:
+                    self._do_attack1()
+                else:
+                    self._do_attack2()
+                self.decision_timer = 0.6
+                return
+            else:
+                # 거리가 애매하면 조금 더 접근
+                self._start_move(direction)
+                self.decision_timer = 0.2
+                return
