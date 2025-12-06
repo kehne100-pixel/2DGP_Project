@@ -11,6 +11,9 @@ from sdl2 import (
 import game_framework
 from state_machine import StateMachine
 
+# 🔥 충돌 디버그용
+from fight_collision import DEBUG_COLLISION, draw_bb
+
 
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
 def right_up(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_RIGHT
@@ -101,7 +104,6 @@ SPRITE = {
             (52, 1905, 49, 56),
             (103, 1906, 49, 55),
             (153, 1905, 48, 55),
-
         ],
         'frames': 4,
         'flip_when_left': True
@@ -120,17 +122,12 @@ SPRITE = {
 
     'skill': {
         'rects': [
-            (0, 1826, 54, 53),
-            (57, 1825, 56, 54),
-            (115, 1826, 53, 54),
-            (194, 1824, 49, 54),
-            (260, 1825, 47, 55),
-            (321, 1825, 46, 54),
-            (378, 1825, 50, 53),
-            (438, 1828, 48, 52),
-            (505, 1825, 49, 55),
+            (0, 1485, 46, 53),
+            (50, 1485, 46, 57),
+            (100, 1485, 49, 57),
+            (150, 1485, 45, 57),
         ],
-        'frames': 9,
+        'frames': 4,
         'flip_when_left': True
     },
 
@@ -555,7 +552,6 @@ class Skill:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                # 스킬 끝나면 항상 Idle로
                 self.kururu.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
@@ -614,7 +610,6 @@ class Skill2:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                # 항상 Idle로 복귀
                 self.kururu.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
@@ -688,7 +683,6 @@ class Skill3:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-               
                 self.kururu.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
@@ -720,9 +714,14 @@ class Kururu:
         self.vy = 0.0
         self.ground_y = 90
 
-        # 실제 이미지 파일 이름에 맞게 수정해줘
         self.image_name = 'Kururu_Sheet.png'
         self.image = None
+
+        # 🔥 HP & 이전 위치 (몸통 충돌용)
+        self.max_hp = 100
+        self.hp = self.max_hp
+        self.prev_x = self.x
+        self.prev_y = self.y
 
         self.IDLE   = Idle(self)
         self.RUN    = Run(self)
@@ -787,7 +786,6 @@ class Kururu:
                     land_run:       self.RUN,
                 },
 
-
                 self.SKILL: {
                     attack_done_idle: self.IDLE,
                 },
@@ -802,16 +800,80 @@ class Kururu:
             }
         )
 
+    # === 현재 공격 중인지 ===
+    def is_attacking(self):
+        s = self.state_machine.cur_state
+        return s in (self.ATTACK, self.ATTACK2, self.SKILL, self.SKILL2, self.SKILL3)
+
+    # === 몸통 바운딩 박스 ===
+    def get_body_bb(self):
+        # 쿠루루는 약간 마른 캐릭 느낌
+        half_w = 26
+        half_h = 52
+        return (self.x - half_w, self.y - half_h,
+                self.x + half_w, self.y + half_h)
+
+    # === 공격 판정 박스 ===
+    def get_attack_bb(self):
+        if not self.is_attacking():
+            return None
+
+        # 정면으로 조금 길게
+        if self.face_dir == 1:
+            left  = self.x
+            right = self.x + 80
+        else:
+            left  = self.x - 80
+            right = self.x
+
+        bottom = self.y - 35
+        top    = self.y + 55
+
+        return (left, bottom, right, top)
+
+    # === 공격 데미지 ===
+    def get_attack_damage(self):
+        s = self.state_machine.cur_state
+        if s is self.ATTACK:
+            return 6
+        elif s is self.ATTACK2:
+            return 9
+        elif s is self.SKILL:
+            return 12
+        elif s is self.SKILL2:
+            return 15
+        elif s is self.SKILL3:
+            return 22
+        return 0
+
+    # === 피격 처리 ===
+    def take_damage(self, amount):
+        self.hp -= amount
+        if self.hp < 0:
+            self.hp = 0
+        print(f'Kururu hit! hp = {self.hp}')
+
     def _ensure_image(self):
         if self.image is None:
             self.image = load_image(self.image_name)
 
     def update(self):
+        # 몸통 충돌 전용 이전 위치 저장
+        self.prev_x = self.x
+        self.prev_y = self.y
+
         self.state_machine.update()
 
     def draw(self):
         self._ensure_image()
         self.state_machine.draw()
+
+        # 디버그용 충돌 박스
+        if DEBUG_COLLISION:
+            draw_bb(self.get_body_bb())
+            atk = self.get_attack_bb()
+            if atk:
+                draw_bb(atk)
 
     def handle_event(self, event):
         self.state_machine.handle_state_event(('INPUT', event))
