@@ -1,138 +1,143 @@
 # camera.py
-from pico2d import *
+# 화면 중심을 기준으로 카메라를 움직이고,
+# 두 캐릭터 거리로 줌인/줌아웃 하는 단순한 버전
 
-# 화면 크기 (play_mode와 동일)
-W, H = 1600, 900
+SCREEN_W, SCREEN_H = 1600, 900
 
-# 카메라 상태 (모듈 전역 변수)
-camera_x = 0.0      # 월드 좌표에서 '화면 왼쪽' 위치
-camera_y = 0.0      # 월드 좌표에서 '화면 아래' 위치
-scale    = 1.0      # 줌 배율 (1.0 = 기본)
-max_zoom_in = 2.0   # 최대 줌인 배율 (친구 코드용)
+# 카메라 중심(world 좌표)
+camera_x = SCREEN_W / 2
+camera_y = SCREEN_H / 2
+
+# 줌 배율 (1.0 = 원래 크기)
+scale = 1.0
+
+# 가까울 때 최대 줌인 배율
+MAX_ZOOM_IN = 1.6   # 너무 크면 배경이 많이 깨져 보임
+MIN_ZOOM     = 1.0  # 처음엔 1.0(원래 상태)
+
 
 def init():
-    """모드 진입시 카메라 초기화"""
+    """플레이 모드 들어올 때 초기화"""
     global camera_x, camera_y, scale
-    camera_x = 0.0
-    camera_y = 0.0
-    scale = 1.0      # ★ 처음엔 원래 화면 크기 그대로
+    camera_x = SCREEN_W / 2
+    camera_y = SCREEN_H / 2
+    scale = 1.0
 
 
 def get_zoom():
-    """현재 줌 배율 리턴 (play_mode에서 사용)"""
     return scale
 
 
-def world_to_screen(x, y):
-    """
-    월드 좌표 (x, y)를 화면 좌표로 변환.
-    화면 좌표 (0,0)은 왼쪽 아래, (W,H)는 오른쪽 위.
-    """
-    sx = (x - camera_x) * scale
-    sy = (y - camera_y) * scale
+def world_to_screen(wx, wy):
+    """월드 좌표 → 화면 좌표"""
+    sx = int((wx - camera_x) * scale + SCREEN_W / 2)
+    sy = int((wy - camera_y) * scale + SCREEN_H / 2)
     return sx, sy
 
 
-def update_camera_zoom(p1, p2, background):
+def update_camera(player, enemy, background):
     """
-    친구가 보내준 줌 로직을
-    p1, p2(플레이어, 적)를 인자로 받도록 수정한 버전.
-    play_mode.update() 에서 매 프레임 호출됨.
+    - 두 캐릭터의 중간을 따라감
+    - 두 캐릭터 거리로 줌인/줌아웃
+    - 배경 이미지 범위를 절대 넘지 않게 클램프
     """
-    global camera_x, camera_y, scale, max_zoom_in
+    global camera_x, camera_y, scale
+    if player is None or enemy is None or background is None:
+        return
 
-    # ----------------- 1. 카메라 중심점 계산 -----------------
-    # 두 캐릭터 중간을 중심으로 잡기
-    center_x = (p1.x + p2.x) / 2.0
-    center_y = (p1.y + p2.y) / 2.0
+    bg_w, bg_h = background.w, background.h
 
-    # 배경 크기
-    if background is not None:
-        bg_w = background.w
-        bg_h = background.h
-    else:
-        bg_w = W
-        bg_h = H
+    # ----------------- 1) 거리 기반 줌 -----------------
+    dx = abs(player.x - enemy.x)
 
-    # 현재 줌 기준으로 봤을 때, 화면에 담기 위한 카메라 위치(왼쪽 아래)
-    desired_camera_x = center_x - (W / (2 * scale))
-    # 격투게임 느낌으로 위아래는 거의 고정 (약간만 위쪽 여유)
-    desired_camera_y = 0.0
-
-    # 카메라가 움직일 수 있는 최대 범위
-    max_camera_x = bg_w - (W / scale)
-    max_camera_y = bg_h - (H / scale)
-
-    # 범위 제한
-    if desired_camera_x < 0:
-        desired_camera_x = 0
-    if desired_camera_y < 0:
-        desired_camera_y = 0
-    if desired_camera_x > max_camera_x:
-        desired_camera_x = max_camera_x
-    if desired_camera_y > max_camera_y:
-        desired_camera_y = max_camera_y
-
-    # 부드럽게 보간해서 이동
-    camera_x += (desired_camera_x - camera_x) * 0.15
-    camera_y += (desired_camera_y - camera_y) * 0.15
-
-    # ----------------- 2. 줌(Scale) 계산 -----------------
-    # 두 캐릭터 사이 거리
-    distance_x = abs(p1.x - p2.x)
-    distance_y = abs(p1.y - p2.y)
-
-    # x 거리 기준값
-    distance_max = 1200.0  # 멀리 떨어졌을 때
-    distance_min = 150.0   # 매우 가까울 때
+    # 이 값들은 직접 조금씩 조절해서 느낌 맞춰도 됨
+    NEAR = 300.0   # 이 거리 이하로 가까워지면 최대 줌인
+    FAR  = 1200.0  # 이 거리 이상 멀어지면 줌아웃(1.0)
 
     # 0~1 로 정규화
-    t = (distance_x - distance_min) / (distance_max - distance_min)
+    t = (dx - NEAR) / (FAR - NEAR)
     if t < 0.0:
         t = 0.0
     if t > 1.0:
         t = 1.0
 
-    # 기본 시작 줌 (1.0 = 원래 화면 그대로)
-    fixed_scale = 1.0
+    # 멀리 있을 때: scale = 1.0
+    # 가까울 때:   scale = MAX_ZOOM_IN
+    target_scale = MAX_ZOOM_IN - (MAX_ZOOM_IN - MIN_ZOOM) * t
 
-    # 1) 기본 줌 계산
-    if distance_x < 320:
-        base_target_scale = fixed_scale
-    else:
-        # 1.0 ~ max_zoom_in 사이에서 변화
-        base_target_scale = max_zoom_in - (max_zoom_in - 1.0) * t
+    if target_scale < MIN_ZOOM:
+        target_scale = MIN_ZOOM
+    if target_scale > MAX_ZOOM_IN:
+        target_scale = MAX_ZOOM_IN
 
-    # 2) 점프 차이에 따른 추가 줌아웃 보정
-    max_y_gap = 300.0
-    y_t = distance_y / max_y_gap
-    if y_t > 1.0:
-        y_t = 1.0
+    # 부드럽게 보간
+    scale += (target_scale - scale) * 0.10
 
-    # x 거리가 가까울수록 extra 줌아웃 크게
-    if distance_x < 0:
-        max_extra_zoom_out = 0.6
-    elif distance_x < 25:
-        max_extra_zoom_out = 0.5
-    elif distance_x < 50:
-        max_extra_zoom_out = 0.4
-    elif distance_x < 75:
-        max_extra_zoom_out = 0.3
-    elif distance_x < 100:
-        max_extra_zoom_out = 0.2
-    elif distance_x < 125:
-        max_extra_zoom_out = 0.1
-    else:
-        max_extra_zoom_out = 0.0
+    # ----------------- 2) 카메라 중심 -----------------
+    # 두 캐릭터 중간
+    desired_cx = (player.x + enemy.x) / 2.0
 
-    extra_zoom_out = max_extra_zoom_out * y_t
+    # 세로는 거의 고정(무대 중앙 기준)
+    desired_cy = bg_h / 2.0
 
-    # 최종 목표 줌
-    target_scale = base_target_scale - extra_zoom_out
+    # 현재 줌에서 화면에 보이는 영역 크기
+    view_w = SCREEN_W / scale
+    view_h = SCREEN_H / scale
+    half_w = view_w / 2.0
+    half_h = view_h / 2.0
 
-    # 1.0 아래로는 내려가지 않게
-    if target_scale < 1.0:
-        target_scale = 1.0
+    # 배경 범위를 넘지 않게 카메라 중심 클램프
+    min_cx = half_w
+    max_cx = bg_w - half_w
+    if min_cx > max_cx:   # 배경이 화면보다 좁을 때 대비
+        min_cx = max_cx = bg_w / 2.0
 
-    # 부드럽게 줌 보간
-    scale += (target_scale - scale) * 0.12
+    if desired_cx < min_cx:
+        desired_cx = min_cx
+    if desired_cx > max_cx:
+        desired_cx = max_cx
+
+    min_cy = half_h
+    max_cy = bg_h - half_h
+    if min_cy > max_cy:
+        min_cy = max_cy = bg_h / 2.0
+
+    if desired_cy < min_cy:
+        desired_cy = min_cy
+    if desired_cy > max_cy:
+        desired_cy = max_cy
+
+    # 부드럽게 따라가기
+    camera_x += (desired_cx - camera_x) * 0.15
+    camera_y += (desired_cy - camera_y) * 0.15
+
+
+def get_view_rect(background):
+    """
+    현재 카메라/줌 상태에서
+    배경 이미지의 어떤 부분을 잘라서 그릴지 반환.
+    (left, bottom, width, height)
+    """
+    bg_w, bg_h = background.w, background.h
+
+    vw = int(SCREEN_W / scale)
+    vh = int(SCREEN_H / scale)
+
+    if vw > bg_w:
+        vw = bg_w
+    if vh > bg_h:
+        vh = bg_h
+
+    left = int(camera_x - vw / 2)
+    bottom = int(camera_y - vh / 2)
+
+    if left < 0:
+        left = 0
+    if bottom < 0:
+        bottom = 0
+    if left + vw > bg_w:
+        left = bg_w - vw
+    if bottom + vh > bg_h:
+        bottom = bg_h - vh
+
+    return left, bottom, vw, vh
