@@ -64,6 +64,14 @@ def init():
     # 위치 지정 (왼쪽)
     player.x, player.y = 400, 90
 
+    # ✅ 2) 적 캐릭터 랜덤 생성
+    enemy_name = random.choice(CHARACTERS)
+    enemy = _create_character_by_name(enemy_name)
+
+    # 위치 지정 (오른쪽)
+    if enemy:
+        enemy.x, enemy.y = 1200, 90
+
 
 
 
