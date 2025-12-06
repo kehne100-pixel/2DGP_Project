@@ -11,8 +11,7 @@ from sdl2 import (
 import game_framework
 from state_machine import StateMachine
 
-# 🔥 충돌 디버그용
-from fight_collision import DEBUG_COLLISION, draw_bb
+import camera  # ✅ 카메라/줌 적용을 위해 추가
 
 
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
@@ -182,7 +181,6 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
     if 'rects' in cfg:
         frame_idx = int(frame_idx)
         sx, sy, sw, sh = cfg['rects'][frame_idx % len(cfg['rects'])]
-
         if face_dir == -1 and cfg.get('flip_when_left', False):
             image.clip_composite_draw(sx, sy, sw, sh, 0, 'h', x, y, draw_w, draw_h)
         else:
@@ -191,7 +189,6 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
 
     sx = (cfg['start_col'] + frame_idx) * CELL_W
     sy = row_y_from_top(cfg['row'])
-
     if face_dir == -1 and cfg.get('flip_when_left', False):
         image.clip_composite_draw(sx, sy, CELL_W, CELL_H, 0, 'h', x, y, draw_w, draw_h)
     else:
@@ -230,14 +227,16 @@ class Idle:
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
+        # ✅ 카메라 좌표/스케일
+        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.keroro.image,
             'idle',
             idx,
             self.keroro.face_dir,
-            self.keroro.x,
-            self.keroro.y,
-            100, 100
+            sx, sy,
+            100 * scale, 100 * scale
         )
 
 
@@ -271,14 +270,16 @@ class Run:
 
     def draw(self):
         self.keroro._ensure_image()
+
+        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.keroro.image,
             'run',
             self.frame,
             self.keroro.face_dir,
-            self.keroro.x,
-            self.keroro.y,
-            100, 100
+            sx, sy,
+            100 * scale, 100 * scale
         )
 
 
@@ -331,14 +332,15 @@ class Attack:
         self.keroro._ensure_image()
         idx = int(self.frame)
 
+        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.keroro.image,
             'attack',
             idx,
             self.keroro.face_dir,
-            self.keroro.x,
-            self.keroro.y,
-            100, 100
+            sx, sy,
+            100 * scale, 100 * scale
         )
 
 
@@ -391,15 +393,17 @@ class Attack2:
         self.keroro._ensure_image()
         idx = int(self.frame)
 
+        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+        offset = 50 * scale  # ✅ 오프셋도 줌에 맞게
+
         if self.keroro.face_dir == -1:
             draw_from_cfg(
                 self.keroro.image,
                 'attack2',
                 idx,
                 self.keroro.face_dir,
-                self.keroro.x - 50,
-                self.keroro.y,
-                110, 100
+                sx - offset, sy,
+                110 * scale, 100 * scale
             )
         else:
             draw_from_cfg(
@@ -407,9 +411,8 @@ class Attack2:
                 'attack2',
                 idx,
                 self.keroro.face_dir,
-                self.keroro.x + 50,
-                self.keroro.y,
-                110, 100
+                sx + offset, sy,
+                110 * scale, 100 * scale
             )
 
 
@@ -435,14 +438,15 @@ class Guard:
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
+        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.keroro.image,
             'guard',
             idx,
             self.keroro.face_dir,
-            self.keroro.x,
-            self.keroro.y,
-            100, 100
+            sx, sy,
+            100 * scale, 100 * scale
         )
 
 
@@ -454,7 +458,7 @@ class Jump:
         self.anim_speed = 0.2
 
         self.JUMP_POWER = 18
-        self.GRAVITY    = -0.5
+        self.GRAVITY = -0.5
 
     def enter(self, e):
         self.frame = 0.0
@@ -466,7 +470,6 @@ class Jump:
         pass
 
     def do(self):
-
         self.frame = (self.frame + self.anim_speed) % self.frame_count
 
         self.keroro.y += self.keroro.vy
@@ -479,19 +482,19 @@ class Jump:
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
+        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.keroro.image,
             'jump',
             idx,
             self.keroro.face_dir,
-            self.keroro.x,
-            self.keroro.y,
-            100, 100
+            sx, sy,
+            100 * scale, 100 * scale
         )
 
 
 class Fall:
-
     def __init__(self, keroro):
         self.keroro = keroro
         self.frame = 0.0
@@ -526,14 +529,15 @@ class Fall:
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
+        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+
         draw_from_cfg(
             self.keroro.image,
             'fall',
             idx,
             self.keroro.face_dir,
-            self.keroro.x,
-            self.keroro.y,
-            100, 100
+            sx, sy,
+            100 * scale, 100 * scale
         )
 
 
@@ -589,16 +593,17 @@ class Skill:
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        skill_draw_w = 110
-        skill_draw_h = 110
+        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+
+        skill_draw_w = 110 * scale
+        skill_draw_h = 110 * scale
 
         draw_from_cfg(
             self.keroro.image,
             'skill',
             idx,
             self.keroro.face_dir,
-            self.keroro.x,
-            self.keroro.y + 10,
+            sx, sy + 10 * scale,
             skill_draw_w,
             skill_draw_h
         )
@@ -656,16 +661,17 @@ class Skill2:
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        skill_draw_w = 110
-        skill_draw_h = 110
+        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+
+        skill_draw_w = 110 * scale
+        skill_draw_h = 110 * scale
 
         draw_from_cfg(
             self.keroro.image,
             'skill2',
             idx,
             self.keroro.face_dir,
-            self.keroro.x,
-            self.keroro.y + 10,
+            sx, sy + 10 * scale,
             skill_draw_w,
             skill_draw_h
         )
@@ -686,7 +692,8 @@ class Skill3:
         self.hold_time = 0.35
         self.hold_timer = 0.0
 
-        self.start_hold_time = 0.15
+        # 첫 동작(프레임 0)을 얼마나 보여줄지
+        self.start_hold_time = 0.15   # 0.15초 정도 시전 준비 포즈 유지
         self.start_timer = 0.0
 
     def enter(self, e):
@@ -694,6 +701,7 @@ class Skill3:
         self.finished = False
         self.hold_timer = 0.0
 
+        # 타이머 초기화
         self.start_timer = 0.0
 
         if self.keroro.face_dir != 0:
@@ -706,10 +714,12 @@ class Skill3:
 
     def do(self):
         if not self.finished:
+            # 일정 시간 동안 0번 프레임 고정
             if self.start_timer < self.start_hold_time:
                 self.start_timer += game_framework.frame_time
                 return
 
+            # 그 다음부터 프레임을 넘기기 시작
             self.frame += self.anim_speed
 
             if self.move_during_skill:
@@ -732,16 +742,17 @@ class Skill3:
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        skill_draw_w = 110
-        skill_draw_h = 110
+        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+
+        skill_draw_w = 110 * scale
+        skill_draw_h = 110 * scale
 
         draw_from_cfg(
             self.keroro.image,
             'skill3',
             idx,
             self.keroro.face_dir,
-            self.keroro.x,
-            self.keroro.y + 10,
+            sx, sy + 10 * scale,
             skill_draw_w,
             skill_draw_h
         )
@@ -762,12 +773,6 @@ class Keroro:
 
         self.image_name = 'Keroro_Sheet.png'
         self.image = None
-
-        # 🔥 HP 및 충돌용 이전 위치
-        self.max_hp = 100
-        self.hp = self.max_hp
-        self.prev_x = self.x
-        self.prev_y = self.y
 
         # 상태 인스턴스
         self.IDLE        = Idle(self)
@@ -862,77 +867,22 @@ class Keroro:
             }
         )
 
-    # === 상태 체크 ===
-    def is_attacking(self):
-        s = self.state_machine.cur_state
-        return s in (self.ATTACK, self.ATTACK2, self.SKILL, self.SKILL2, self.SKILL3)
-
-    # === 몸통 바운딩 박스 ===
-    def get_body_bb(self):
-        # 케로로가 대략 60x70 정도라 가정
-        half_w = 35
-        half_h = 55
-        return (self.x - half_w, self.y - half_h,
-                self.x + half_w, self.y + half_h)
-
-    # === 공격 판정 박스 ===
-    def get_attack_bb(self):
-        if not self.is_attacking():
-            return None
-
-        # 공격 방향에 따른 전방 판정
-        if self.face_dir == 1:
-            left  = self.x
-            right = self.x + 80
-        else:
-            left  = self.x - 80
-            right = self.x
-
-        bottom = self.y - 40
-        top    = self.y + 60
-        return (left, bottom, right, top)
-
-    # === 공격 데미지 ===
-    def get_attack_damage(self):
-        s = self.state_machine.cur_state
-        if s is self.ATTACK:
-            return 7
-        elif s is self.ATTACK2:
-            return 9
-        elif s in (self.SKILL, self.SKILL2):
-            return 15
-        elif s is self.SKILL3:
-            return 22
-        return 0
-
-    # === 피격 ===
-    def take_damage(self, amount):
-        self.hp -= amount
-        if self.hp < 0:
-            self.hp = 0
-        print(f'Keroro hit! hp = {self.hp}')
-
     def _ensure_image(self):
         if self.image is None:
             self.image = load_image(self.image_name)
 
-    def update(self):
-        # 몸통 충돌 막기용 이전 위치 저장
-        self.prev_x = self.x
-        self.prev_y = self.y
 
+    def get_screen_pos_and_scale(self):
+        sx, sy = camera.world_to_screen(self.x, self.y)
+        scale = camera.get_zoom()
+        return sx, sy, scale
+
+    def update(self):
         self.state_machine.update()
 
     def draw(self):
         self._ensure_image()
         self.state_machine.draw()
-
-        # 디버그용 충돌 박스 표시
-        if DEBUG_COLLISION:
-            draw_bb(self.get_body_bb())
-            atk_bb = self.get_attack_bb()
-            if atk_bb:
-                draw_bb(atk_bb)
 
     def handle_event(self, event):
         self.state_machine.handle_state_event(('INPUT', event))
