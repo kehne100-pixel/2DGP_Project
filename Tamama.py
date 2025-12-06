@@ -11,6 +11,9 @@ from sdl2 import (
 import game_framework
 from state_machine import StateMachine
 
+# 🔥 충돌 디버그용
+from fight_collision import DEBUG_COLLISION, draw_bb
+
 
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
 def right_up(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_RIGHT
@@ -71,7 +74,7 @@ SPRITE = {
             (271,  1920, 59, 53),
             (339, 1920, 61, 53),
         ],
-        'frames': 4,
+        'frames': 4,   # rect는 3개지만 마지막 프레임은 첫 rect 재사용(현재 구조 유지)
         'flip_when_left': True
     },
 
@@ -675,7 +678,6 @@ class Skill3:
         self.start_timer = 0.0
 
     def enter(self, e):
-        # ★ 제자리 스킬: 방향/이동 모두 0으로
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
@@ -690,19 +692,16 @@ class Skill3:
 
     def do(self):
         if not self.finished:
-            # 초기 준비 포즈 유지
             if self.start_timer < self.start_hold_time:
                 self.start_timer += game_framework.frame_time
                 return
 
-            # 프레임만 진행, 위치는 고정
             self.frame += self.anim_speed
 
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
                 self.finished = True
         else:
-            # 마지막 포즈 유지 후 Idle 로 복귀
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
@@ -727,7 +726,6 @@ class Skill3:
         )
 
 
-
 class Tamama:
     def __init__(self):
         self.x, self.y = 400, 90
@@ -740,6 +738,12 @@ class Tamama:
 
         self.image_name = 'Tamama_Sheet.png'
         self.image = None
+
+        # 🔥 HP, 이전 위치(몸통 충돌용)
+        self.max_hp = 100
+        self.hp = self.max_hp
+        self.prev_x = self.x
+        self.prev_y = self.y
 
         self.IDLE   = Idle(self)
         self.RUN    = Run(self)
@@ -818,16 +822,77 @@ class Tamama:
             }
         )
 
+    # === 상태 체크 ===
+    def is_attacking(self):
+        s = self.state_machine.cur_state
+        return s in (self.ATTACK, self.ATTACK2, self.SKILL, self.SKILL2, self.SKILL3)
+
+    # === 몸통 바운딩 박스 ===
+    def get_body_bb(self):
+        # 타마마는 케로로보다 조금 작게
+        half_w = 30
+        half_h = 50
+        return (self.x - half_w, self.y - half_h,
+                self.x + half_w, self.y + half_h)
+
+    # === 공격 판정 박스 ===
+    def get_attack_bb(self):
+        if not self.is_attacking():
+            return None
+
+        if self.face_dir == 1:
+            left  = self.x
+            right = self.x + 80
+        else:
+            left  = self.x - 80
+            right = self.x
+
+        bottom = self.y - 40
+        top    = self.y + 60
+        return (left, bottom, right, top)
+
+    # === 공격 데미지 ===
+    def get_attack_damage(self):
+        s = self.state_machine.cur_state
+        if s is self.ATTACK:
+            return 6
+        elif s is self.ATTACK2:
+            return 8
+        elif s is self.SKILL:
+            return 13
+        elif s is self.SKILL2:
+            return 15
+        elif s is self.SKILL3:
+            return 22
+        return 0
+
+    # === 피격 ===
+    def take_damage(self, amount):
+        self.hp -= amount
+        if self.hp < 0:
+            self.hp = 0
+        print(f'Tamama hit! hp = {self.hp}')
+
     def _ensure_image(self):
         if self.image is None:
             self.image = load_image(self.image_name)
 
     def update(self):
+        # 몸통 충돌 막기 위한 이전 위치 저장
+        self.prev_x = self.x
+        self.prev_y = self.y
+
         self.state_machine.update()
 
     def draw(self):
         self._ensure_image()
         self.state_machine.draw()
+
+        if DEBUG_COLLISION:
+            draw_bb(self.get_body_bb())
+            atk_bb = self.get_attack_bb()
+            if atk_bb:
+                draw_bb(atk_bb)
 
     def handle_event(self, event):
         self.state_machine.handle_state_event(('INPUT', event))
