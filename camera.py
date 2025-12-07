@@ -1,143 +1,132 @@
 # camera.py
-# 화면 중심을 기준으로 카메라를 움직이고,
-# 두 캐릭터 거리로 줌인/줌아웃 하는 단순한 버전
+# - 가로 중심: 두 캐릭터 사이 중점
+# - 세로: 평소엔 바닥이 고정된 높이에 보이도록, 점프할 때만 조금 위로 따라감
+# - 줌(scale)은 두 캐릭터 x 거리로만 결정
+# - world_to_screen() 으로 캐릭터 그리기용 좌표 변환
 
 SCREEN_W, SCREEN_H = 1600, 900
 
-# 카메라 중심(world 좌표)
-camera_x = SCREEN_W / 2
-camera_y = SCREEN_H / 2
+center_x = SCREEN_W / 2
+center_y = SCREEN_H / 2
+scale    = 1.0
 
-# 줌 배율 (1.0 = 원래 크기)
-scale = 1.0
+MIN_ZOOM = 1.0   # 기본 배율(처음 화면)
+MAX_ZOOM = 1.6   # 최대 확대 배율 (원하면 1.4~1.8 정도로 조정 가능)
 
-# 가까울 때 최대 줌인 배율
-MAX_ZOOM_IN = 1.6   # 너무 크면 배경이 많이 깨져 보임
-MIN_ZOOM     = 1.0  # 처음엔 1.0(원래 상태)
+# 바닥이 화면에서 보일 y 위치 (pico2d 좌표계 기준)
+GROUND_SCREEN_Y = 90.0   # 네 게임에서 캐릭터가 서 있는 y와 맞춰서 사용
 
 
 def init():
-    """플레이 모드 들어올 때 초기화"""
-    global camera_x, camera_y, scale
-    camera_x = SCREEN_W / 2
-    camera_y = SCREEN_H / 2
-    scale = 1.0
+    global center_x, center_y, scale
+    center_x = SCREEN_W / 2
+    center_y = SCREEN_H / 2
+    scale    = 1.0
+
+
+def update(p1, p2, background):
+    """
+    - 두 캐릭터 사이 x 거리로 줌 결정
+    - center_x: 두 캐릭터 x 중점
+    - center_y: 평소엔 '바닥이 항상 같은 화면 높이'에 오도록,
+                점프할 때만 두 캐릭터 y 중점 쪽으로 살짝 올라감
+    - 배경 밖으로 나가지 않게 카메라 중심을 클램프
+    """
+    global center_x, center_y, scale
+
+    if p1 is None or p2 is None:
+        return
+
+    # ---------- 1) 줌 계산 (x 거리만 사용) ----------
+    dx = abs(p1.x - p2.x)
+
+    NEAR = 250.0   # 이 거리 이하 → 최대 확대
+    FAR  = 1200.0  # 이 거리 이상 → 최소 확대(=1.0)
+
+    if dx <= NEAR:
+        t = 1.0
+    elif dx >= FAR:
+        t = 0.0
+    else:
+        t = 1.0 - (dx - NEAR) / (FAR - NEAR)  # 0 ~ 1
+
+    target_scale = MIN_ZOOM + (MAX_ZOOM - MIN_ZOOM) * t
+
+    # 부드럽게 보간
+    lerp = 0.12
+    scale = scale + (target_scale - scale) * lerp
+
+    if scale < MIN_ZOOM:
+        scale = MIN_ZOOM
+    if scale > MAX_ZOOM:
+        scale = MAX_ZOOM
+
+    # ---------- 2) 가로 카메라 중심: 두 캐릭터 x 중점 ----------
+    mid_x = (p1.x + p2.x) / 2.0
+    desired_cx = mid_x
+
+    # ---------- 3) 세로 카메라 중심 계산 ----------
+    # (1) 기본: 바닥이 항상 화면 GROUND_SCREEN_Y 위치에 보이도록 하는 center_y
+    ground_world_y = getattr(p1, 'ground_y', 90.0)  # 캐릭터 ground_y 사용
+    base_center_y = ground_world_y - (GROUND_SCREEN_Y - SCREEN_H / 2.0) / scale
+
+    # (2) 점프 시: 두 캐릭터 y 중점 쪽으로 약간 이동
+    mid_y = (p1.y + p2.y) / 2.0
+
+    jump_h1 = max(0.0, p1.y - ground_world_y)
+    jump_h2 = max(0.0, p2.y - ground_world_y)
+    max_jump_h = max(jump_h1, jump_h2)
+
+    JUMP_MAX = 300.0  # 이 정도 높이까지 올라가면 t_jump → 1.0
+    if max_jump_h <= 0:
+        t_jump = 0.0
+    else:
+        t_jump = max(0.0, min(1.0, max_jump_h / JUMP_MAX))
+
+    # t_jump == 0 이면 완전 바닥 기준, 1이면 두 캐릭터 y 중점 기준
+    desired_cy = base_center_y * (1.0 - t_jump) + mid_y * t_jump
+
+    # ---------- 4) 배경 안에서만 보이도록 중심 클램프 ----------
+    if background:
+        view_w = SCREEN_W / scale
+        view_h = SCREEN_H / scale
+
+        half_w = view_w / 2.0
+        half_h = view_h / 2.0
+
+        min_cx = half_w
+        max_cx = background.w - half_w
+        min_cy = half_h
+        max_cy = background.h - half_h
+
+        # 배경이 창보다 작을 수도 있으니 방어
+        if min_cx > max_cx:
+            min_cx = max_cx = background.w / 2.0
+        if min_cy > max_cy:
+            min_cy = max_cy = background.h / 2.0
+
+        desired_cx = max(min_cx, min(desired_cx, max_cx))
+        desired_cy = max(min_cy, min(desired_cy, max_cy))
+
+    # ---------- 5) 카메라 중심 부드럽게 이동 ----------
+    follow_lerp = 0.15
+    center_x = center_x + (desired_cx - center_x) * follow_lerp
+    center_y = center_y + (desired_cy - center_y) * follow_lerp
+
+
+def world_to_screen(wx, wy):
+    """
+    월드 좌표 → 화면 좌표
+    (카메라 중심(center_x, center_y), 배율(scale) 적용)
+    """
+    sx = int((wx - center_x) * scale + SCREEN_W / 2)
+    sy = int((wy - center_y) * scale + SCREEN_H / 2)
+    return sx, sy
 
 
 def get_zoom():
     return scale
 
 
-def world_to_screen(wx, wy):
-    """월드 좌표 → 화면 좌표"""
-    sx = int((wx - camera_x) * scale + SCREEN_W / 2)
-    sy = int((wy - camera_y) * scale + SCREEN_H / 2)
-    return sx, sy
-
-
-def update_camera(player, enemy, background):
-    """
-    - 두 캐릭터의 중간을 따라감
-    - 두 캐릭터 거리로 줌인/줌아웃
-    - 배경 이미지 범위를 절대 넘지 않게 클램프
-    """
-    global camera_x, camera_y, scale
-    if player is None or enemy is None or background is None:
-        return
-
-    bg_w, bg_h = background.w, background.h
-
-    # ----------------- 1) 거리 기반 줌 -----------------
-    dx = abs(player.x - enemy.x)
-
-    # 이 값들은 직접 조금씩 조절해서 느낌 맞춰도 됨
-    NEAR = 300.0   # 이 거리 이하로 가까워지면 최대 줌인
-    FAR  = 1200.0  # 이 거리 이상 멀어지면 줌아웃(1.0)
-
-    # 0~1 로 정규화
-    t = (dx - NEAR) / (FAR - NEAR)
-    if t < 0.0:
-        t = 0.0
-    if t > 1.0:
-        t = 1.0
-
-    # 멀리 있을 때: scale = 1.0
-    # 가까울 때:   scale = MAX_ZOOM_IN
-    target_scale = MAX_ZOOM_IN - (MAX_ZOOM_IN - MIN_ZOOM) * t
-
-    if target_scale < MIN_ZOOM:
-        target_scale = MIN_ZOOM
-    if target_scale > MAX_ZOOM_IN:
-        target_scale = MAX_ZOOM_IN
-
-    # 부드럽게 보간
-    scale += (target_scale - scale) * 0.10
-
-    # ----------------- 2) 카메라 중심 -----------------
-    # 두 캐릭터 중간
-    desired_cx = (player.x + enemy.x) / 2.0
-
-    # 세로는 거의 고정(무대 중앙 기준)
-    desired_cy = bg_h / 2.0
-
-    # 현재 줌에서 화면에 보이는 영역 크기
-    view_w = SCREEN_W / scale
-    view_h = SCREEN_H / scale
-    half_w = view_w / 2.0
-    half_h = view_h / 2.0
-
-    # 배경 범위를 넘지 않게 카메라 중심 클램프
-    min_cx = half_w
-    max_cx = bg_w - half_w
-    if min_cx > max_cx:   # 배경이 화면보다 좁을 때 대비
-        min_cx = max_cx = bg_w / 2.0
-
-    if desired_cx < min_cx:
-        desired_cx = min_cx
-    if desired_cx > max_cx:
-        desired_cx = max_cx
-
-    min_cy = half_h
-    max_cy = bg_h - half_h
-    if min_cy > max_cy:
-        min_cy = max_cy = bg_h / 2.0
-
-    if desired_cy < min_cy:
-        desired_cy = min_cy
-    if desired_cy > max_cy:
-        desired_cy = max_cy
-
-    # 부드럽게 따라가기
-    camera_x += (desired_cx - camera_x) * 0.15
-    camera_y += (desired_cy - camera_y) * 0.15
-
-
-def get_view_rect(background):
-    """
-    현재 카메라/줌 상태에서
-    배경 이미지의 어떤 부분을 잘라서 그릴지 반환.
-    (left, bottom, width, height)
-    """
-    bg_w, bg_h = background.w, background.h
-
-    vw = int(SCREEN_W / scale)
-    vh = int(SCREEN_H / scale)
-
-    if vw > bg_w:
-        vw = bg_w
-    if vh > bg_h:
-        vh = bg_h
-
-    left = int(camera_x - vw / 2)
-    bottom = int(camera_y - vh / 2)
-
-    if left < 0:
-        left = 0
-    if bottom < 0:
-        bottom = 0
-    if left + vw > bg_w:
-        left = bg_w - vw
-    if bottom + vh > bg_h:
-        bottom = bg_h - vh
-
-    return left, bottom, vw, vh
+def get_center():
+    return center_x, center_y
