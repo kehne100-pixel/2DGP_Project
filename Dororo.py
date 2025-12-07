@@ -11,30 +11,27 @@ from sdl2 import (
 import game_framework
 from state_machine import StateMachine
 
-import camera  # ✅ 카메라/줌 연동용
+import camera  # 카메라/줌 연동용
 
 
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
 def right_up(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_RIGHT
 def left_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_LEFT
 def left_up(e):    return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_LEFT
-def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a   # Guard 시작
-def a_up(e):       return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_a   # Guard 해제
-def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s   # Attack
-def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d   # Attack2
-def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE  # 점프
+def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a
+def a_up(e):       return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_a
+def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s
+def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d
+def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE
 def Time_out(e):   return e[0] == 'TIME_OUT'
 def attack_done_idle(e): return e[0] == 'ATTACK_DONE_IDLE'
 def attack_done_run(e):  return e[0] == 'ATTACK_DONE_RUN'
-def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'   # Jump → Fall
-def land_idle(e):    return e[0] == 'LAND_IDLE'      # Fall → Idle
-def land_run(e):     return e[0] == 'LAND_RUN'       # Fall → Run
+def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'
+def land_idle(e):    return e[0] == 'LAND_IDLE'
+def land_run(e):     return e[0] == 'LAND_RUN'
 
-# 숫자 1 키 스킬
 def skill_down(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_1
-# 숫자 2 키 스킬2
 def skill2_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_2
-# 숫자 3 키 스킬3
 def skill3_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_3
 
 
@@ -52,7 +49,7 @@ SPRITE = {
         'rects': [
             (0,   2882, 42, 48),
             (43,  2882, 41, 49),
-            (85, 2882, 42, 49),
+            (85,  2882, 42, 49),
             (135, 2883, 41, 48),
         ],
         'frames': 4,
@@ -83,10 +80,9 @@ SPRITE = {
 
     'attack2': {
         'rects': [
-            (4, 2514, 41, 50),
-            (48, 2514, 64, 54),
+            (4,   2514, 41, 50),
+            (48,  2514, 64, 54),
             (120, 2514, 53, 56),
-
         ],
         'frames': 3,
         'flip_when_left': True
@@ -102,9 +98,9 @@ SPRITE = {
 
     'jump': {
         'rects': [
-            (0, 2642, 40, 43),
-            (45, 2642, 37, 60),
-            (87, 2642, 40 ,60),
+            (0,   2642, 40, 43),
+            (45,  2642, 37, 60),
+            (87,  2642, 40, 60),
             (131, 2658, 42, 44),
             (176, 2659, 40, 49),
         ],
@@ -122,8 +118,8 @@ SPRITE = {
 
     'skill': {
         'rects': [
-            (0, 2118, 47, 45),
-            (50, 2117, 71, 53),
+            (0,   2118, 47, 45),
+            (50,  2117, 71, 53),
             (123, 2118, 65, 48),
         ],
         'frames': 3,
@@ -132,8 +128,8 @@ SPRITE = {
 
     'skill2': {
         'rects': [
-            (0, 2034, 40, 50),
-            (42, 2034, 82, 65),
+            (0,   2034, 40, 50),
+            (42,  2034, 82, 65),
             (139, 2020, 65, 80),
             (213, 2046, 82, 65),
             (301, 2036, 66, 81),
@@ -151,7 +147,7 @@ SPRITE = {
         'rects': [
             (278, 2281, 40, 47),
             (320, 2281, 46, 61),
-            (371, 2281 ,43, 61),
+            (371, 2281, 43, 61),
         ],
         'frames': 3,
         'flip_when_left': True
@@ -213,7 +209,7 @@ class Idle:
         self.dororo._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.dororo.get_screen_pos_and_scale()
+        sx, sy, _ = self.dororo.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.dororo.image,
@@ -222,8 +218,8 @@ class Idle:
             self.dororo.face_dir,
             sx,
             sy,
-            100 * scale,
-            100 * scale
+            100,
+            100
         )
 
 
@@ -258,7 +254,7 @@ class Run:
     def draw(self):
         self.dororo._ensure_image()
 
-        sx, sy, scale = self.dororo.get_screen_pos_and_scale()
+        sx, sy, _ = self.dororo.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.dororo.image,
@@ -267,8 +263,8 @@ class Run:
             self.dororo.face_dir,
             sx,
             sy,
-            100 * scale,
-            100 * scale
+            100,
+            100
         )
 
 
@@ -329,14 +325,13 @@ class Attack:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                # 항상 Idle 로
                 self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.dororo._ensure_image()
         idx = int(self.frame)
 
-        sx, sy, scale = self.dororo.get_screen_pos_and_scale()
+        sx, sy, _ = self.dororo.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.dororo.image,
@@ -345,8 +340,8 @@ class Attack:
             self.dororo.face_dir,
             sx,
             sy,
-            110 * scale,
-            110 * scale
+            110,
+            110
         )
 
 
@@ -390,15 +385,14 @@ class Attack2:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                # Attack2도 항상 Idle 로
                 self.dororo.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.dororo._ensure_image()
         idx = int(self.frame)
 
-        sx, sy, scale = self.dororo.get_screen_pos_and_scale()
-        offset = 50 * scale
+        sx, sy, _ = self.dororo.get_screen_pos_and_scale()
+        offset = 50  # scale 제거
 
         if self.dororo.face_dir == -1:
             draw_from_cfg(
@@ -408,8 +402,8 @@ class Attack2:
                 self.dororo.face_dir,
                 sx - offset,
                 sy,
-                110 * scale,
-                100 * scale
+                110,
+                100
             )
         else:
             draw_from_cfg(
@@ -419,8 +413,8 @@ class Attack2:
                 self.dororo.face_dir,
                 sx + offset,
                 sy,
-                110 * scale,
-                100 * scale
+                110,
+                100
             )
 
 
@@ -446,7 +440,7 @@ class Guard:
         self.dororo._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.dororo.get_screen_pos_and_scale()
+        sx, sy, _ = self.dororo.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.dororo.image,
@@ -455,8 +449,8 @@ class Guard:
             self.dororo.face_dir,
             sx,
             sy,
-            100 * scale,
-            100 * scale
+            100,
+            100
         )
 
 
@@ -492,7 +486,7 @@ class Jump:
         self.dororo._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.dororo.get_screen_pos_and_scale()
+        sx, sy, _ = self.dororo.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.dororo.image,
@@ -501,8 +495,8 @@ class Jump:
             self.dororo.face_dir,
             sx,
             sy,
-            100 * scale,
-            100 * scale
+            100,
+            100
         )
 
 
@@ -541,7 +535,7 @@ class Fall:
         self.dororo._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.dororo.get_screen_pos_and_scale()
+        sx, sy, _ = self.dororo.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.dororo.image,
@@ -550,8 +544,8 @@ class Fall:
             self.dororo.face_dir,
             sx,
             sy,
-            100 * scale,
-            100 * scale
+            100,
+            100
         )
 
 
@@ -561,7 +555,6 @@ class Skill:
         self.frame = 0.0
         self.frame_count = SPRITE['skill']['frames']
 
-        # 달리면서 나가는 스킬 속도
         self.RUN_SPEED = 4.0
 
         self.anim_speed = 0.06
@@ -609,10 +602,7 @@ class Skill:
         self.dororo._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.dororo.get_screen_pos_and_scale()
-
-        skill_draw_w = 110 * scale
-        skill_draw_h = 110 * scale
+        sx, sy, _ = self.dororo.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.dororo.image,
@@ -620,9 +610,9 @@ class Skill:
             idx,
             self.dororo.face_dir,
             sx,
-            sy + 10 * scale,
-            skill_draw_w,
-            skill_draw_h
+            sy + 10,
+            110,
+            110
         )
 
 
@@ -669,10 +659,7 @@ class Skill2:
         self.dororo._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.dororo.get_screen_pos_and_scale()
-
-        skill_draw_w = 110 * scale
-        skill_draw_h = 110 * scale
+        sx, sy, _ = self.dororo.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.dororo.image,
@@ -680,9 +667,9 @@ class Skill2:
             idx,
             self.dororo.face_dir,
             sx,
-            sy + 10 * scale,
-            skill_draw_w,
-            skill_draw_h
+            sy + 10,
+            110,
+            110
         )
 
 
@@ -738,10 +725,7 @@ class Skill3:
         self.dororo._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.dororo.get_screen_pos_and_scale()
-
-        skill_draw_w = 110 * scale
-        skill_draw_h = 110 * scale
+        sx, sy, _ = self.dororo.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.dororo.image,
@@ -749,9 +733,9 @@ class Skill3:
             idx,
             self.dororo.face_dir,
             sx,
-            sy + 10 * scale,
-            skill_draw_w,
-            skill_draw_h
+            sy + 10,
+            110,
+            110
         )
 
 
@@ -849,7 +833,6 @@ class Dororo:
         if self.image is None:
             self.image = load_image(self.image_name)
 
-    # ✅ 카메라 좌표/스케일 계산용 공통 함수
     def get_screen_pos_and_scale(self):
         sx, sy = camera.world_to_screen(self.x, self.y)
         scale = camera.get_zoom()
