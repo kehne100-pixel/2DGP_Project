@@ -23,8 +23,9 @@ ai = None
 selected_character = 0
 CHARACTERS = ['Dororo', 'Tamama', 'Keroro', 'Giroro', 'Kururu']
 
-# ✅ 플레이어가 한 번이라도 움직였는지 여부
-player_moved = False
+# ✔ 스테이지 양 끝(플레이어가 움직일 수 있는 최소/최대 x)
+STAGE_LEFT  = 60
+STAGE_RIGHT = W - 60   # = 1540
 
 
 def set_selected_index(index):
@@ -34,6 +35,7 @@ def set_selected_index(index):
 
 # ---------------- 캐릭터 생성 ----------------
 def create_fighter(name, is_left=True):
+    """캐릭터 이름에 따라 객체 생성 + 양쪽 끝 리스폰"""
     if name == 'Keroro':
         c = Keroro()
     elif name == 'Dororo':
@@ -48,15 +50,15 @@ def create_fighter(name, is_left=True):
         print(f"[WARN] Unknown fighter name: {name}, use Keroro")
         c = Keroro()
 
+    # 각 캐릭터가 가진 ground_y에 맞춰 발 위치 세팅
     c.y = c.ground_y
 
-    # 스샷처럼 양쪽 끝에서 출발
-    MARGIN_X = 120
+    # ✔ 양쪽 끝에서 리스폰 (STAGE_LEFT / STAGE_RIGHT 사용)
     if is_left:
-        c.x = MARGIN_X
+        c.x = STAGE_LEFT
         c.face_dir = 1
     else:
-        c.x = W - MARGIN_X
+        c.x = STAGE_RIGHT
         c.face_dir = -1
 
     c.dir = 0
@@ -78,25 +80,16 @@ def resolve_body_collision():
 
     distance = abs(dx)
     if distance < min_distance:
-        # enemy가 오른쪽에 있을 때만, 그리고 플레이어가 오른쪽(적 쪽)으로
-        # 파고들 때만 밀어냄
+        # enemy 위치는 고정, player 만 밀기
         if dx > 0:
-            if player.dir > 0:   # ▶ 오른쪽으로 이동 중일 때만
-                player.x = enemy.x - min_distance
-
-        # enemy가 왼쪽에 있을 때만, 그리고 플레이어가 왼쪽(적 쪽)으로
-        # 파고들 때만 밀어냄
-        else:  # dx < 0
-            if player.dir < 0:   # ◀ 왼쪽으로 이동 중일 때만
-                player.x = enemy.x + min_distance
-
+            player.x = enemy.x - min_distance
+        else:
+            player.x = enemy.x + min_distance
 
 
 # --------- 캐릭터가 스테이지 밖으로 못 나가게 (월드 기준) ----------
 def clamp_fighters():
-    STAGE_LEFT  = 60
-    STAGE_RIGHT = W - 60
-
+    # ✔ 플레이어와 적 모두 STAGE_LEFT ~ STAGE_RIGHT 안에만 있게
     if player:
         player.x = max(STAGE_LEFT, min(STAGE_RIGHT, player.x))
     if enemy:
@@ -105,7 +98,7 @@ def clamp_fighters():
 
 # ---------------- 초기화 ----------------
 def init():
-    global background, player, enemy, ai, player_moved
+    global background, player, enemy, ai
 
     try:
         background = load_image('Keroro_background.png')
@@ -114,20 +107,24 @@ def init():
         print("⚠️ Keroro_background.png 를 찾지 못했습니다.")
         background = None
 
+    # 1P (왼쪽 끝)
     player_name = CHARACTERS[selected_character]
     player = create_fighter(player_name, is_left=True)
-    print(f"✅ Player1 : {player_name}")
+    print(f"✅ Player1 : {player_name}, spawn x = {player.x}")
 
+    # 2P (오른쪽 끝)
     enemy_candidates = [n for n in CHARACTERS if n != player_name]
     enemy_name = random.choice(enemy_candidates)
     enemy = create_fighter(enemy_name, is_left=False)
-    print(f"✅ Enemy (AI) : {enemy_name}")
+    print(f"✅ Enemy(AI) : {enemy_name}, spawn x = {enemy.x}")
 
     ai = FighterAI(enemy, player)
 
-    camera.init()   # 처음엔 배율 1.0, 화면은 기존과 동일
-    player_moved = False         # ✅ 카메라 잠금 초기화
-    print("✅ Camera init 완료")
+    # ✔ 카메라 초기화 + 두 캐릭터 기준으로 한 번 갱신
+    camera.init()
+    camera.update(player, enemy, background)
+    print("✅ Camera init & first update 완료")
+
 
 
 def finish():
@@ -140,7 +137,7 @@ def finish():
 
 # ---------------- 매 프레임 업데이트 ----------------
 def update():
-    global player, enemy, ai, background, player_moved
+    global player, enemy, ai, background
 
     if player:
         player.update()
@@ -152,15 +149,11 @@ def update():
     # 스테이지 밖으로 못 나가게
     clamp_fighters()
 
-    # 몸통 충돌
+    # 플레이어/적 몸통 충돌 처리
     resolve_body_collision()
 
-    # ❗ 플레이어가 한 번이라도 움직였는지 체크
-    if player and (player.dir != 0 or player.vy != 0):
-        player_moved = True
-
-    # 카메라 중심 & 줌 갱신 (네 번째 인자로 player_moved 전달)
-    camera.update(player, enemy, background, player_moved)
+    # 카메라 중심 & 줌 갱신
+    camera.update(player, enemy, background)
 
 
 # ---------------- 그리기 ----------------
@@ -170,7 +163,7 @@ def draw():
     zoom = camera.get_zoom()
     cx, cy = camera.get_center()
 
-    # ✅ 배경은 항상 화면 전체를 덮되, 카메라 중심/줌에 맞춰 잘라 그리기
+    # 배경은 항상 화면 전체를 덮되, 카메라 중심/줌에 맞춰 잘라 그리기
     if background:
         src_w = int(W / zoom)
         src_h = int(H / zoom)
@@ -178,6 +171,7 @@ def draw():
         bx = int(cx - src_w / 2)
         by = int(cy - src_h / 2)
 
+        # 배경 범위를 벗어나지 않게 클램프
         if bx < 0:
             bx = 0
         if by < 0:
@@ -200,6 +194,7 @@ def draw():
         set_clear_color(0.5, 0.5, 0.5, 1.0)
         clear_canvas()
 
+    # 캐릭터 그리기 (각 캐릭터 draw() 안에서 world_to_screen 사용)
     if player:
         player.draw()
     if enemy:
