@@ -11,30 +11,27 @@ from sdl2 import (
 import game_framework
 from state_machine import StateMachine
 
-import camera  # ✅ 카메라/줌 적용을 위해 추가
+import camera  # 카메라/줌 연동용
 
 
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
 def right_up(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_RIGHT
 def left_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_LEFT
 def left_up(e):    return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_LEFT
-def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a   # Guard 시작
-def a_up(e):       return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_a   # Guard 해제
-def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s   # Attack
-def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d   # Attack2
-def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE  # 점프
+def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a
+def a_up(e):       return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_a
+def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s
+def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d
+def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE
 def Time_out(e):   return e[0] == 'TIME_OUT'
 def attack_done_idle(e): return e[0] == 'ATTACK_DONE_IDLE'
 def attack_done_run(e):  return e[0] == 'ATTACK_DONE_RUN'
-def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'   # Jump → Fall
-def land_idle(e):    return e[0] == 'LAND_IDLE'      # Fall → Idle
-def land_run(e):     return e[0] == 'LAND_RUN'       # Fall → Run
+def jump_to_fall(e):     return e[0] == 'JUMP_TO_FALL'
+def land_idle(e):        return e[0] == 'LAND_IDLE'
+def land_run(e):         return e[0] == 'LAND_RUN'
 
-# 숫자 1 키 스킬
 def skill_down(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_1
-# 숫자 2 키 스킬2
 def skill2_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_2
-# 숫자 3 키 스킬3
 def skill3_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_3
 
 
@@ -100,8 +97,8 @@ SPRITE = {
 
     'jump': {
         'rects': [
-            (0, 1393, 75, 44),
-            (79, 1391, 62, 60),
+            (0,   1393, 75, 44),
+            (79,  1391, 62, 60),
             (151, 1393, 64, 58),
             (227, 1392, 61, 58),
             (299, 1392, 64, 60),
@@ -116,8 +113,8 @@ SPRITE = {
 
     'fall': {
         'rects': [
-            (7, 1313, 52, 71),
-            (73, 1313, 51, 73),
+            (7,   1313, 52, 71),
+            (73,  1313, 51, 73),
             (137, 1313, 53, 73),
             (203, 1313, 51, 73),
             (267, 1313, 52, 72),
@@ -131,8 +128,8 @@ SPRITE = {
 
     'skill': {
         'rects': [
-            (18, 756, 48, 54),
-            (87, 756, 90, 58),
+            (18,  756, 48, 54),
+            (87,  756, 90, 58),
             (193, 756, 66, 59),
             (265, 756, 58, 58),
             (352, 756, 89, 58),
@@ -147,7 +144,7 @@ SPRITE = {
 
     'skill2': {
         'rects': [
-            (24, 343, 44, 51),
+            (24,  343, 44, 51),
             (123, 344, 74, 43),
             (205, 346, 53, 54),
             (296, 344, 60, 57),
@@ -155,7 +152,7 @@ SPRITE = {
             (515, 344, 59, 53),
             (611, 344, 46, 50),
             (710, 344, 47, 46),
-            (24, 271, 71, 48),
+            (24,  271, 71, 48),
             (121, 271, 73, 47),
             (220, 271, 72, 45),
         ],
@@ -165,9 +162,9 @@ SPRITE = {
 
     'skill3': {
         'rects': [
-            (0, 1, 47, 58),
-            (80, 3, 63, 47),
-            (149, 3, 66, 46),
+            (0,   1,  47, 58),
+            (80,  3,  63, 47),
+            (149, 3,  66, 46),
         ],
         'frames': 3,
         'flip_when_left': True
@@ -227,8 +224,7 @@ class Idle:
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        # ✅ 카메라 좌표/스케일
-        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+        sx, sy, _ = self.keroro.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.keroro.image,
@@ -236,7 +232,7 @@ class Idle:
             idx,
             self.keroro.face_dir,
             sx, sy,
-            100 * scale, 100 * scale
+            100, 100
         )
 
 
@@ -271,7 +267,7 @@ class Run:
     def draw(self):
         self.keroro._ensure_image()
 
-        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+        sx, sy, _ = self.keroro.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.keroro.image,
@@ -279,7 +275,7 @@ class Run:
             self.frame,
             self.keroro.face_dir,
             sx, sy,
-            100 * scale, 100 * scale
+            100, 100
         )
 
 
@@ -332,7 +328,7 @@ class Attack:
         self.keroro._ensure_image()
         idx = int(self.frame)
 
-        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+        sx, sy, _ = self.keroro.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.keroro.image,
@@ -340,7 +336,7 @@ class Attack:
             idx,
             self.keroro.face_dir,
             sx, sy,
-            100 * scale, 100 * scale
+            100, 100
         )
 
 
@@ -393,8 +389,8 @@ class Attack2:
         self.keroro._ensure_image()
         idx = int(self.frame)
 
-        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
-        offset = 50 * scale  # ✅ 오프셋도 줌에 맞게
+        sx, sy, _ = self.keroro.get_screen_pos_and_scale()
+        offset = 50  # scale 제거
 
         if self.keroro.face_dir == -1:
             draw_from_cfg(
@@ -403,7 +399,7 @@ class Attack2:
                 idx,
                 self.keroro.face_dir,
                 sx - offset, sy,
-                110 * scale, 100 * scale
+                110, 100
             )
         else:
             draw_from_cfg(
@@ -412,7 +408,7 @@ class Attack2:
                 idx,
                 self.keroro.face_dir,
                 sx + offset, sy,
-                110 * scale, 100 * scale
+                110, 100
             )
 
 
@@ -438,7 +434,7 @@ class Guard:
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+        sx, sy, _ = self.keroro.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.keroro.image,
@@ -446,7 +442,7 @@ class Guard:
             idx,
             self.keroro.face_dir,
             sx, sy,
-            100 * scale, 100 * scale
+            100, 100
         )
 
 
@@ -482,7 +478,7 @@ class Jump:
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+        sx, sy, _ = self.keroro.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.keroro.image,
@@ -490,7 +486,7 @@ class Jump:
             idx,
             self.keroro.face_dir,
             sx, sy,
-            100 * scale, 100 * scale
+            100, 100
         )
 
 
@@ -529,7 +525,7 @@ class Fall:
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
+        sx, sy, _ = self.keroro.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.keroro.image,
@@ -537,7 +533,7 @@ class Fall:
             idx,
             self.keroro.face_dir,
             sx, sy,
-            100 * scale, 100 * scale
+            100, 100
         )
 
 
@@ -593,19 +589,15 @@ class Skill:
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
-
-        skill_draw_w = 110 * scale
-        skill_draw_h = 110 * scale
+        sx, sy, _ = self.keroro.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.keroro.image,
             'skill',
             idx,
             self.keroro.face_dir,
-            sx, sy + 10 * scale,
-            skill_draw_w,
-            skill_draw_h
+            sx, sy + 10,
+            110, 110
         )
 
 
@@ -661,19 +653,15 @@ class Skill2:
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
-
-        skill_draw_w = 110 * scale
-        skill_draw_h = 110 * scale
+        sx, sy, _ = self.keroro.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.keroro.image,
             'skill2',
             idx,
             self.keroro.face_dir,
-            sx, sy + 10 * scale,
-            skill_draw_w,
-            skill_draw_h
+            sx, sy + 10,
+            110, 110
         )
 
 
@@ -692,7 +680,6 @@ class Skill3:
         self.hold_time = 0.35
         self.hold_timer = 0.0
 
-        # 첫 동작(프레임 0)을 얼마나 보여줄지
         self.start_hold_time = 0.15   # 0.15초 정도 시전 준비 포즈 유지
         self.start_timer = 0.0
 
@@ -701,7 +688,6 @@ class Skill3:
         self.finished = False
         self.hold_timer = 0.0
 
-        # 타이머 초기화
         self.start_timer = 0.0
 
         if self.keroro.face_dir != 0:
@@ -714,12 +700,10 @@ class Skill3:
 
     def do(self):
         if not self.finished:
-            # 일정 시간 동안 0번 프레임 고정
             if self.start_timer < self.start_hold_time:
                 self.start_timer += game_framework.frame_time
                 return
 
-            # 그 다음부터 프레임을 넘기기 시작
             self.frame += self.anim_speed
 
             if self.move_during_skill:
@@ -742,25 +726,18 @@ class Skill3:
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.keroro.get_screen_pos_and_scale()
-
-        skill_draw_w = 110 * scale
-        skill_draw_h = 110 * scale
+        sx, sy, _ = self.keroro.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.keroro.image,
             'skill3',
             idx,
             self.keroro.face_dir,
-            sx, sy + 10 * scale,
-            skill_draw_w,
-            skill_draw_h
+            sx, sy + 10,
+            110, 110
         )
 
 
-# ---------------------------
-# Keroro 본체
-# ---------------------------
 class Keroro:
     def __init__(self):
         self.x, self.y = 400, 90
@@ -774,7 +751,6 @@ class Keroro:
         self.image_name = 'Keroro_Sheet.png'
         self.image = None
 
-        # 상태 인스턴스
         self.IDLE        = Idle(self)
         self.RUN         = Run(self)
         self.ATTACK      = Attack(self)
@@ -782,15 +758,14 @@ class Keroro:
         self.GUARD       = Guard(self)
         self.JUMP        = Jump(self)
         self.FALL        = Fall(self)
-        self.SKILL       = Skill(self)    # 1번 스킬
-        self.SKILL2      = Skill2(self)   # 2번 스킬
-        self.SKILL3      = Skill3(self)   # 3번 스킬
+        self.SKILL       = Skill(self)
+        self.SKILL2      = Skill2(self)
+        self.SKILL3      = Skill3(self)
 
         self.state_machine = StateMachine(
             self.IDLE,
             {
 
-                # Idle 상태
                 self.IDLE: {
                     right_down:     self.RUN,
                     left_down:      self.RUN,
@@ -798,12 +773,11 @@ class Keroro:
                     s_down:         self.ATTACK,
                     d_down:         self.ATTACK2,
                     space_down:     self.JUMP,
-                    skill_down:     self.SKILL,     # 1
-                    skill2_down:    self.SKILL2,    # 2
-                    skill3_down:    self.SKILL3,    # 3
+                    skill_down:     self.SKILL,
+                    skill2_down:    self.SKILL2,
+                    skill3_down:    self.SKILL3,
                 },
 
-                # Run 상태
                 self.RUN: {
                     right_up:       self.IDLE,
                     left_up:        self.IDLE,
@@ -818,47 +792,39 @@ class Keroro:
                     skill3_down:    self.SKILL3,
                 },
 
-                # Attack 끝나면 Idle/Run
                 self.ATTACK: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.RUN,
                 },
 
-                # Attack2 끝나면 Idle/Run
                 self.ATTACK2: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.RUN,
                 },
 
-                # Guard 상태
                 self.GUARD: {
                     a_up:           self.IDLE,
                 },
 
-                # Jump 상태
                 self.JUMP: {
                     jump_to_fall:   self.FALL,
                 },
 
-                # Fall 상태
                 self.FALL: {
                     land_idle:      self.IDLE,
                     land_run:       self.RUN,
                 },
 
-                # Skill1 상태
                 self.SKILL: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.RUN,
                 },
 
-                # Skill2 상태
                 self.SKILL2: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.RUN,
                 },
 
-                # Skill3 상태
                 self.SKILL3: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.RUN,
@@ -870,7 +836,6 @@ class Keroro:
     def _ensure_image(self):
         if self.image is None:
             self.image = load_image(self.image_name)
-
 
     def get_screen_pos_and_scale(self):
         sx, sy = camera.world_to_screen(self.x, self.y)
