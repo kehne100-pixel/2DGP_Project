@@ -1,103 +1,84 @@
 # camera.py
-# - 가로(x) 방향만 카메라/줌 적용
-# - y는 바닥(ground_y)을 기준으로 앵커, 점프할 때만 scale 영향
-# - world_to_screen() 으로 캐릭터 그리기용 좌표 변환
+# - 가로 스크롤 없이, 배경 중앙을 항상 보여줌
+# - 두 캐릭터 사이 x 거리로 줌(확대/축소)만 조절
+# - 캐릭터 y는 항상 같은 바닥에 서 있게 처리
 
 SCREEN_W, SCREEN_H = 1600, 900
 
 center_x = SCREEN_W / 2
-center_y = SCREEN_H / 2   # 배경 그릴 때만 사용
-scale    = 1.0
+center_y = SCREEN_H / 2
 
-# 줌 범위 (너무 크지 않게 줄였음)
-MIN_ZOOM = 0.9   # 처음 화면은 약간 멀리
-MAX_ZOOM = 1.2   # 최대 확대도 과하지 않게
+scale = 1.0
+MIN_ZOOM = 1.0     # 기본 배율
+MAX_ZOOM = 1.3     # 최대 확대 (너무 크지 않게 줄였음)
 
-# 캐릭터 월드 기준 바닥 y
-CHR_GROUND_Y    = 90.0
-# 화면에서 캐릭터 발이 닿을 y (이 값만 바꾸면 위/아래로 전체 이동)
-GROUND_SCREEN_Y = 90.0
+CHR_GROUND_Y = 90.0    # 캐릭터 월드 기준 바닥 y
+GROUND_SCREEN_Y = 90.0 # 화면에서 발 위치 y (이 값만 바꾸면 됨)
 
 
 def init():
     global center_x, center_y, scale
     center_x = SCREEN_W / 2
     center_y = SCREEN_H / 2
-    scale    = 1.0
+    scale = 1.0
 
 
-
-
-def update(p1, p2, background, player_moved=False):
-
+def update(p1, p2, background):
     """
-    - 두 캐릭터 사이 x 거리로 줌 계산
-    - center_x 는 두 캐릭터 x 중점
-    - 세로는 고정 (배경 중앙 기준)
+    - 배경 중앙을 항상 기준으로 삼음 (가로 스크롤 X)
+    - 두 캐릭터 사이 거리만 보고 줌만 조절
     """
     global center_x, center_y, scale
 
+    # 배경이 있으면 카메라 중심은 항상 배경 중앙
+    if background:
+        center_x = background.w / 2.0
+        center_y = background.h / 2.0
+    else:
+        center_x = SCREEN_W / 2.0
+        center_y = SCREEN_H / 2.0
+
+    # 캐릭터 둘 다 있어야 줌 계산
     if p1 is None or p2 is None:
         return
 
-    # ---------- 1) 줌 계산 (x 거리만) ----------
+    # ---------- 1) 줌 계산 (x 거리만 사용) ----------
     dx = abs(p1.x - p2.x)
 
-    NEAR = 250.0   # 이 거리 이하 → 최대 확대
-    FAR  = 1200.0  # 이 거리 이상 → 최소 줌 (멀리)
+    # 거리 기준
+    NEAR = 250.0   # 이 이하이면 최대 확대
+    FAR  = 1400.0  # 이 이상이면 최소 확대
 
     if dx <= NEAR:
         t = 1.0
     elif dx >= FAR:
         t = 0.0
     else:
-        t = 1.0 - (dx - NEAR) / (FAR - NEAR)   # 0 ~ 1
+        # 0 ~ 1
+        t = 1.0 - (dx - NEAR) / (FAR - NEAR)
 
     target_scale = MIN_ZOOM + (MAX_ZOOM - MIN_ZOOM) * t
 
-    # 부드럽게 보간
-    lerp = 0.12
-    scale = scale + (target_scale - scale) * lerp
-    scale = max(MIN_ZOOM, min(scale, MAX_ZOOM))
-
-    # ---------- 2) 가로 카메라 중심 : 두 캐릭터 x 중점 ----------
-    desired_cx = (p1.x + p2.x) / 2.0
-
-    # ---------- 3) 배경 안에서만 보이도록 center_x 클램프 ----------
-    if background:
-        view_w = SCREEN_W / scale
-        half_w = view_w / 2.0
-
-        min_cx = half_w
-        max_cx = background.w - half_w
-
-        # 배경이 창보다 작을 경우 방어
-        if min_cx > max_cx:
-            min_cx = max_cx = background.w / 2.0
-
-        desired_cx = max(min_cx, min(desired_cx, max_cx))
-
-        # 세로 중심은 배경 중앙(위아래로는 이제 안 움직임)
-        center_y = background.h / 2.0
-    else:
-        center_y = SCREEN_H / 2.0
-
-    # 부드럽게 따라감
-    follow_lerp = 0.15
-    center_x = center_x + (desired_cx - center_x) * follow_lerp
+    # 부드러운 보간
+    scale += (target_scale - scale) * 0.10
+    if scale < MIN_ZOOM:
+        scale = MIN_ZOOM
+    if scale > MAX_ZOOM:
+        scale = MAX_ZOOM
 
 
 def world_to_screen(wx, wy):
     """
     월드 좌표 -> 화면 좌표
-    - x : center_x, scale 적용 (카메라/줌 영향 O)
-    - y : ground_y 기준으로 고정, 점프 높이만 scale 영향
+    - x : 배경 중앙(center_x) 기준으로 zoom만 적용
+    - y : CHR_GROUND_Y를 기준으로, 점프 높이만 zoom에 영향
+      (바닥에 서있을 땐 항상 같은 y에 보이도록)
     """
-    # ▶ 가로는 카메라/줌 그대로
+    # 가로
     sx = int((wx - center_x) * scale + SCREEN_W / 2)
 
-    # ▶ 세로는 "바닥" 기준으로 고정
-    dy = wy - CHR_GROUND_Y              # 바닥에서 얼만큼 올라갔는지
+    # 세로 : 바닥 기준
+    dy = wy - CHR_GROUND_Y
     sy = int(GROUND_SCREEN_Y + dy * scale)
 
     return sx, sy
