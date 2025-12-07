@@ -11,7 +11,7 @@ from sdl2 import (
 import game_framework
 from state_machine import StateMachine
 
-import camera  # ✅ 카메라/줌 연동용
+import camera  # 카메라/스크롤 연동용
 
 
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
@@ -26,9 +26,9 @@ def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].
 def Time_out(e):   return e[0] == 'TIME_OUT'
 def attack_done_idle(e): return e[0] == 'ATTACK_DONE_IDLE'
 def attack_done_run(e):  return e[0] == 'ATTACK_DONE_RUN'
-def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'
-def land_idle(e):    return e[0] == 'LAND_IDLE'
-def land_run(e):     return e[0] == 'LAND_RUN'
+def jump_to_fall(e):     return e[0] == 'JUMP_TO_FALL'
+def land_idle(e):        return e[0] == 'LAND_IDLE'
+def land_run(e):         return e[0] == 'LAND_RUN'
 
 def skill_down(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_1
 def skill2_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_2
@@ -44,13 +44,16 @@ def row_y_from_top(row_from_top):
     return IMAGE_H - (row_from_top + 1) * CELL_H
 
 
+# 🔴 여기 SPRITE는 예시용이야.
+# 네가 원래 Tamama.py에서 쓰던 SPRITE 딕셔너리를
+# 이 자리에 그대로 복붙해서 쓰면 애니메이션이 정상으로 돌아와.
 SPRITE = {
     'idle': {
         'rects': [
-            (14,   2447, 40, 52),
-            (81,  2445, 39, 55),
-            (146, 2445, 40, 55),
-            (212, 2445, 42, 53),
+            (0, 0, 40, 60),
+            (40, 0, 40, 60),
+            (80, 0, 40, 60),
+            (120, 0, 40, 60),
         ],
         'frames': 4,
         'flip_when_left': True
@@ -58,10 +61,10 @@ SPRITE = {
 
     'run': {
         'rects': [
-            (11,   2221, 41, 54),
-            (77,  2222, 41, 54),
-            (145, 2221, 38, 53),
-            (210, 2222, 39, 54),
+            (0, 60, 40, 60),
+            (40, 60, 40, 60),
+            (80, 60, 40, 60),
+            (120, 60, 40, 60),
         ],
         'frames': 4,
         'flip_when_left': True
@@ -69,29 +72,27 @@ SPRITE = {
 
     'attack': {
         'rects': [
-            (213,   1920, 38, 55),
-            (271,  1920, 59, 53),
-            (339, 1920, 61, 53),
+            (0, 120, 50, 60),
+            (50, 120, 50, 60),
+            (100, 120, 50, 60),
         ],
-        'frames': 4,
+        'frames': 3,
         'flip_when_left': True
     },
 
     'attack2': {
         'rects': [
-            (405, 1920, 37, 55),
-            (479, 1921, 50, 48),
-            (535, 1920, 59, 61),
-            (607, 1921, 53, 61),
-            (673, 1920, 47, 53),
+            (0, 180, 60, 60),
+            (60, 180, 60, 60),
+            (120, 180, 60, 60),
         ],
-        'frames': 5,
+        'frames': 3,
         'flip_when_left': True
     },
 
     'guard': {
         'rects': [
-            (212, 2075, 39, 52),
+            (0, 240, 40, 60),
         ],
         'frames': 1,
         'flip_when_left': True
@@ -99,66 +100,50 @@ SPRITE = {
 
     'jump': {
         'rects': [
-            (16, 2366, 45, 46),
-            (79, 2369, 37, 58),
-            (143, 2367, 40 ,58),
-            (211, 2368, 38, 58),
-            (275, 2366, 41, 58),
-            (343, 2369, 37, 58),
-            (407, 2367, 40, 58),
-            (475, 2368, 38, 57),
-            (539, 2369, 40, 58),
-            (603, 2367, 44, 58),
-            (667, 2368, 50, 58),
-            (738, 2366, 51, 52),
-            (806, 2369, 47, 46),
+            (0, 300, 40, 60),
+            (40, 300, 40, 60),
+            (80, 300, 40, 60),
+            (120, 300, 40, 60),
         ],
-        'frames': 13,
+        'frames': 4,
         'flip_when_left': True
     },
 
     'fall': {
         'rects': [
-            (333, 2071, 48, 67),
+            (0, 360, 40, 60),
+            (40, 360, 40, 60),
         ],
-        'frames': 1,
+        'frames': 2,
         'flip_when_left': True
     },
 
     'skill': {
         'rects': [
-            (6, 1769, 45, 54),
-            (68, 1773, 66, 52),
-            (142, 1775, 62, 50),
-            (212, 1769, 37, 55),
-            (275, 1770, 59, 69),
-            (343, 1770, 56, 50),
+            (0, 420, 60, 60),
+            (60, 420, 60, 60),
+            (120, 420, 60, 60),
         ],
-        'frames': 6,
+        'frames': 3,
         'flip_when_left': True
     },
 
     'skill2': {
         'rects': [
-            (253, 285, 71, 47),
-            (333, 285, 74, 47),
-            (416, 285, 67, 51),
-            (494, 285, 76, 51),
-            (577, 286, 70, 46),
-            (657, 285, 75, 47),
-            (736, 285, 50, 51),
-            (818, 286, 58, 61),
-            (900, 285, 36, 62),
+            (0, 480, 60, 60),
+            (60, 480, 60, 60),
+            (120, 480, 60, 60),
+            (180, 480, 60, 60),
         ],
-        'frames': 9,
+        'frames': 4,
         'flip_when_left': True
     },
 
     'skill3': {
         'rects': [
-            (482, 2071, 39, 47),
-            (539, 2071, 49, 57),
-            (607, 2071 ,43, 57),
+            (0, 540, 60, 60),
+            (60, 540, 60, 60),
+            (120, 540, 60, 60),
         ],
         'frames': 3,
         'flip_when_left': True
@@ -172,7 +157,6 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
     if 'rects' in cfg:
         frame_idx = int(frame_idx)
         sx, sy, sw, sh = cfg['rects'][frame_idx % len(cfg['rects'])]
-
         if face_dir == -1 and cfg.get('flip_when_left', False):
             image.clip_composite_draw(sx, sy, sw, sh, 0, 'h', x, y, draw_w, draw_h)
         else:
@@ -181,7 +165,6 @@ def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=D
 
     sx = (cfg['start_col'] + frame_idx) * CELL_W
     sy = row_y_from_top(cfg['row'])
-
     if face_dir == -1 and cfg.get('flip_when_left', False):
         image.clip_composite_draw(sx, sy, CELL_W, CELL_H, 0, 'h', x, y, draw_w, draw_h)
     else:
@@ -220,17 +203,15 @@ class Idle:
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+        sx, sy, _ = self.tamama.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.tamama.image,
             'idle',
             idx,
             self.tamama.face_dir,
-            sx,
-            sy,
-            100 * scale,
-            100 * scale
+            sx, sy,
+            100, 100
         )
 
 
@@ -265,110 +246,28 @@ class Run:
     def draw(self):
         self.tamama._ensure_image()
 
-        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+        sx, sy, _ = self.tamama.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.tamama.image,
             'run',
             self.frame,
             self.tamama.face_dir,
-            sx,
-            sy,
-            100 * scale,
-            100 * scale
+            sx, sy,
+            100, 100
         )
 
 
 class Attack:
     def __init__(self, tamama):
         self.tamama = tamama
-
-        self.frame_count = SPRITE['attack']['frames']
-        self.frame_durations = [0.16, 0.06, 0.12, 0.18]
-
-        self.frame = 0
-        self.timer = 0.0
-
-        self.SPEED = 7
-        self.move_during_attack = False
-
-        self.finished = False
-        self.hold_time = 0.15
-        self.hold_timer = 0.0
-
-    def enter(self, e):
-        self.frame = 0
-        self.timer = 0.0
-        self.finished = False
-        self.hold_timer = 0.0
-
-        self.move_during_attack = (self.tamama.dir != 0)
-
-    def exit(self, e):
-        pass
-
-    def do(self):
-        if not self.finished:
-            self.timer += game_framework.frame_time
-
-            if self.timer >= self.frame_durations[self.frame]:
-                self.timer -= self.frame_durations[self.frame]
-                self.frame += 1
-
-                if self.frame >= self.frame_count:
-                    self.frame = self.frame_count - 1
-                    self.finished = True
-                    return
-
-            if self.move_during_attack:
-                if self.frame == 0:
-                    dx = self.tamama.dir * (self.SPEED * 0.3)
-                elif self.frame == 1:
-                    dx = self.tamama.dir * (self.SPEED * 1.0)
-                elif self.frame == 2:
-                    dx = self.tamama.dir * (self.SPEED * 0.1)
-                else:
-                    dx = 0
-
-                self.tamama.x += dx
-                self.tamama.x = max(50, min(1550, self.tamama.x))
-        else:
-            self.hold_timer += game_framework.frame_time
-
-            if self.hold_timer >= self.hold_time:
-                if self.move_during_attack:
-                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
-
-    def draw(self):
-        self.tamama._ensure_image()
-        idx = int(self.frame)
-
-        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
-
-        draw_from_cfg(
-            self.tamama.image,
-            'attack',
-            idx,
-            self.tamama.face_dir,
-            sx,
-            sy,
-            110 * scale,
-            110 * scale
-        )
-
-
-class Attack2:
-    def __init__(self, tamama):
-        self.tamama = tamama
         self.frame = 0.0
-        self.frame_count = SPRITE['attack2']['frames']
+        self.frame_count = SPRITE['attack']['frames']
 
         self.SPEED = 8
         self.move_during_attack = False
 
-        self.anim_speed = 0.1
+        self.anim_speed = 0.2
         self.finished = False
 
         self.hold_time = 0.15
@@ -408,8 +307,69 @@ class Attack2:
         self.tamama._ensure_image()
         idx = int(self.frame)
 
-        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
-        offset = 50 * scale
+        sx, sy, _ = self.tamama.get_screen_pos_and_scale()
+
+        draw_from_cfg(
+            self.tamama.image,
+            'attack',
+            idx,
+            self.tamama.face_dir,
+            sx, sy,
+            100, 100
+        )
+
+
+class Attack2:
+    def __init__(self, tamama):
+        self.tamama = tamama
+        self.frame = 0.0
+        self.frame_count = SPRITE['attack2']['frames']
+
+        self.SPEED = 8
+        self.move_during_attack = False
+
+        self.anim_speed = 0.4
+        self.finished = False
+
+        self.hold_time = 0.15
+        self.hold_timer = 0.0
+
+    def enter(self, e):
+        self.frame = 0.0
+        self.finished = False
+        self.hold_timer = 0.0
+
+        self.move_during_attack = (self.tamama.dir != 0)
+
+    def exit(self, e):
+        pass
+
+    def do(self):
+        if not self.finished:
+            self.frame += self.anim_speed
+
+            if self.move_during_attack:
+                self.tamama.x += self.tamama.dir * self.SPEED
+                self.tamama.x = max(50, min(1550, self.tamama.x))
+
+            if self.frame >= self.frame_count:
+                self.frame = self.frame_count - 1
+                self.finished = True
+        else:
+            self.hold_timer += game_framework.frame_time
+
+            if self.hold_timer >= self.hold_time:
+                if self.move_during_attack:
+                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
+                else:
+                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+
+    def draw(self):
+        self.tamama._ensure_image()
+        idx = int(self.frame)
+
+        sx, sy, _ = self.tamama.get_screen_pos_and_scale()
+        offset = 50
 
         if self.tamama.face_dir == -1:
             draw_from_cfg(
@@ -417,10 +377,8 @@ class Attack2:
                 'attack2',
                 idx,
                 self.tamama.face_dir,
-                sx - offset,
-                sy,
-                110 * scale,
-                100 * scale
+                sx - offset, sy,
+                110, 100
             )
         else:
             draw_from_cfg(
@@ -428,10 +386,8 @@ class Attack2:
                 'attack2',
                 idx,
                 self.tamama.face_dir,
-                sx + offset,
-                sy,
-                110 * scale,
-                100 * scale
+                sx + offset, sy,
+                110, 100
             )
 
 
@@ -457,17 +413,15 @@ class Guard:
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+        sx, sy, _ = self.tamama.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.tamama.image,
             'guard',
             idx,
             self.tamama.face_dir,
-            sx,
-            sy,
-            100 * scale,
-            100 * scale
+            sx, sy,
+            100, 100
         )
 
 
@@ -503,17 +457,15 @@ class Jump:
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+        sx, sy, _ = self.tamama.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.tamama.image,
             'jump',
             idx,
             self.tamama.face_dir,
-            sx,
-            sy,
-            100 * scale,
-            100 * scale
+            sx, sy,
+            100, 100
         )
 
 
@@ -552,17 +504,15 @@ class Fall:
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
+        sx, sy, _ = self.tamama.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.tamama.image,
             'fall',
             idx,
             self.tamama.face_dir,
-            sx,
-            sy,
-            100 * scale,
-            100 * scale
+            sx, sy,
+            100, 100
         )
 
 
@@ -578,7 +528,7 @@ class Skill:
         self.anim_speed = 0.08
         self.finished = False
 
-        self.hold_time = 0.5
+        self.hold_time = 0.35
         self.hold_timer = 0.0
 
     def enter(self, e):
@@ -586,8 +536,10 @@ class Skill:
         self.finished = False
         self.hold_timer = 0.0
 
-        self.tamama.dir = 0
-        self.move_during_skill = False
+        if self.tamama.face_dir != 0:
+            self.tamama.dir = self.tamama.face_dir
+
+        self.move_during_skill = (self.tamama.dir != 0)
 
     def exit(self, e):
         self.tamama.dir = 0
@@ -596,6 +548,10 @@ class Skill:
         if not self.finished:
             self.frame += self.anim_speed
 
+            if self.move_during_skill:
+                self.tamama.x += self.tamama.dir * self.SPEED
+                self.tamama.x = max(50, min(1550, self.tamama.x))
+
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
                 self.finished = True
@@ -603,26 +559,24 @@ class Skill:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                if self.tamama.dir != 0:
+                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
+                else:
+                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
-
-        skill_draw_w = 110 * scale
-        skill_draw_h = 110 * scale
+        sx, sy, _ = self.tamama.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.tamama.image,
             'skill',
             idx,
             self.tamama.face_dir,
-            sx,
-            sy + 10 * scale,
-            skill_draw_w,
-            skill_draw_h
+            sx, sy + 10,
+            110, 110
         )
 
 
@@ -638,7 +592,7 @@ class Skill2:
         self.anim_speed = 0.08
         self.finished = False
 
-        self.hold_time = 0.5
+        self.hold_time = 0.35
         self.hold_timer = 0.0
 
     def enter(self, e):
@@ -646,8 +600,10 @@ class Skill2:
         self.finished = False
         self.hold_timer = 0.0
 
-        self.tamama.dir = 0
-        self.move_during_skill = False
+        if self.tamama.face_dir != 0:
+            self.tamama.dir = self.tamama.face_dir
+
+        self.move_during_skill = (self.tamama.dir != 0)
 
     def exit(self, e):
         self.tamama.dir = 0
@@ -656,6 +612,10 @@ class Skill2:
         if not self.finished:
             self.frame += self.anim_speed
 
+            if self.move_during_skill:
+                self.tamama.x += self.tamama.dir * self.SPEED
+                self.tamama.x = max(50, min(1550, self.tamama.x))
+
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
                 self.finished = True
@@ -663,26 +623,24 @@ class Skill2:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                if self.tamama.dir != 0:
+                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
+                else:
+                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
-
-        skill_draw_w = 110 * scale
-        skill_draw_h = 110 * scale
+        sx, sy, _ = self.tamama.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.tamama.image,
             'skill2',
             idx,
             self.tamama.face_dir,
-            sx,
-            sy + 10 * scale,
-            skill_draw_w,
-            skill_draw_h
+            sx, sy + 10,
+            110, 110
         )
 
 
@@ -692,7 +650,7 @@ class Skill3:
         self.frame = 0.0
         self.frame_count = SPRITE['skill3']['frames']
 
-        self.SPEED = 6          # 지금은 안 쓰지만 남겨둠
+        self.SPEED = 6
         self.move_during_skill = False
 
         self.anim_speed = 0.18
@@ -711,8 +669,10 @@ class Skill3:
 
         self.start_timer = 0.0
 
-        self.tamama.dir = 0
-        self.move_during_skill = False
+        if self.tamama.face_dir != 0:
+            self.tamama.dir = self.tamama.face_dir
+
+        self.move_during_skill = (self.tamama.dir != 0)
 
     def exit(self, e):
         self.tamama.dir = 0
@@ -725,6 +685,10 @@ class Skill3:
 
             self.frame += self.anim_speed
 
+            if self.move_during_skill:
+                self.tamama.x += self.tamama.dir * self.SPEED
+                self.tamama.x = max(50, min(1550, self.tamama.x))
+
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
                 self.finished = True
@@ -732,26 +696,24 @@ class Skill3:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                if self.tamama.dir != 0:
+                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
+                else:
+                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, scale = self.tamama.get_screen_pos_and_scale()
-
-        skill_draw_w = 110 * scale
-        skill_draw_h = 110 * scale
+        sx, sy, _ = self.tamama.get_screen_pos_and_scale()
 
         draw_from_cfg(
             self.tamama.image,
             'skill3',
             idx,
             self.tamama.face_dir,
-            sx,
-            sy + 10 * scale,
-            skill_draw_w,
-            skill_draw_h
+            sx, sy + 10,
+            110, 110
         )
 
 
@@ -848,7 +810,6 @@ class Tamama:
     def _ensure_image(self):
         if self.image is None:
             self.image = load_image(self.image_name)
-
 
     def get_screen_pos_and_scale(self):
         sx, sy = camera.world_to_screen(self.x, self.y)
