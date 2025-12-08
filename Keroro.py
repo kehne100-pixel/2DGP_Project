@@ -175,10 +175,10 @@ SPRITE = {
         'flip_when_left': True
     },
 
-    # ❗ Hit 스프라이트 (임시 좌표 – 나중에 네가 실제 hit 프레임으로 바꿔줘)
+
     'hit': {
         'rects': [
-            (4, 1842, 60, 60),  # 일단 idle 1프레임과 동일하게
+            (207, 1470, 48, 63),
         ],
         'frames': 1,
         'flip_when_left': True
