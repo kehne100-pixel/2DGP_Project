@@ -11,28 +11,33 @@ from sdl2 import (
 import game_framework
 from state_machine import StateMachine
 
-import camera  # 카메라/스크롤 연동용
 
-
+# -----------------------------
+# 이벤트 체크 함수들
+# -----------------------------
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
 def right_up(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_RIGHT
 def left_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_LEFT
 def left_up(e):    return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_LEFT
-def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a   # Guard 시작
-def a_up(e):       return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_a   # Guard 해제
-def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s   # Attack
-def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d   # Attack2
-def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE  # 점프
+def a_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_a
+def a_up(e):       return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_a
+def s_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_s
+def d_down(e):     return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_d
+def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_SPACE
 def Time_out(e):   return e[0] == 'TIME_OUT'
 def attack_done_idle(e): return e[0] == 'ATTACK_DONE_IDLE'
 def attack_done_run(e):  return e[0] == 'ATTACK_DONE_RUN'
-def jump_to_fall(e):     return e[0] == 'JUMP_TO_FALL'   # Jump → Fall
-def land_idle(e):        return e[0] == 'LAND_IDLE'      # Fall → Idle
-def land_run(e):         return e[0] == 'LAND_RUN'       # Fall → Run
+def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'
+def land_idle(e):    return e[0] == 'LAND_IDLE'
+def land_run(e):     return e[0] == 'LAND_RUN'
 
 def skill_down(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_1
 def skill2_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_2
 def skill3_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_3
+
+# ❗ 맞았을 때 / Hit 끝났을 때
+def got_hit(e):   return e[0] == 'GOT_HIT'
+def hit_end(e):   return e[0] == 'HIT_END'
 
 
 IMAGE_W, IMAGE_H = 996, 1917
@@ -157,6 +162,15 @@ SPRITE = {
         'frames': 3,
         'flip_when_left': True
     },
+
+
+    'hit': {
+        'rects': [
+            (0, 342, 51, 57),
+        ],
+        'frames': 1,
+        'flip_when_left': True
+    },
 }
 
 
@@ -193,6 +207,9 @@ Run_frames_per_action = 4
 Run_frame_per_second = Run_frames_per_action * Run_action_per_time
 
 
+# -----------------------------
+# 상태 클래스들
+# -----------------------------
 class Idle:
     def __init__(self, giroro):
         self.giroro = giroro
@@ -204,6 +221,9 @@ class Idle:
         self.giroro.wait_start_time = get_time()
         self.frame = 0.0
 
+        self.giroro.is_attacking = False
+        self.giroro.attack_hit_done = False
+
     def exit(self, e):
         pass
 
@@ -214,14 +234,13 @@ class Idle:
         self.giroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, _ = self.giroro.get_screen_pos_and_scale()
-
         draw_from_cfg(
             self.giroro.image,
             'idle',
             idx,
             self.giroro.face_dir,
-            sx, sy,
+            self.giroro.x,
+            self.giroro.y,
             100, 100
         )
 
@@ -256,14 +275,13 @@ class Run:
 
     def draw(self):
         self.giroro._ensure_image()
-        sx, sy, _ = self.giroro.get_screen_pos_and_scale()
-
         draw_from_cfg(
             self.giroro.image,
             'run',
             self.frame,
             self.giroro.face_dir,
-            sx, sy,
+            self.giroro.x,
+            self.giroro.y,
             100, 100
         )
 
@@ -290,12 +308,14 @@ class Attack:
 
         self.move_during_attack = (self.giroro.dir != 0)
 
+        self.giroro.is_attacking = True
+        self.giroro.attack_hit_done = False
+
     def exit(self, e):
-        pass
+        self.giroro.is_attacking = False
 
     def do(self):
         if not self.finished:
-
             self.frame += self.anim_speed
 
             if self.move_during_attack:
@@ -318,14 +338,13 @@ class Attack:
         self.giroro._ensure_image()
         idx = int(self.frame)
 
-        sx, sy, _ = self.giroro.get_screen_pos_and_scale()
-
         draw_from_cfg(
             self.giroro.image,
             'attack',
             idx,
             self.giroro.face_dir,
-            sx, sy,
+            self.giroro.x,
+            self.giroro.y,
             100, 100
         )
 
@@ -352,8 +371,11 @@ class Attack2:
 
         self.move_during_attack = (self.giroro.dir != 0)
 
+        self.giroro.is_attacking = True
+        self.giroro.attack_hit_done = False
+
     def exit(self, e):
-        pass
+        self.giroro.is_attacking = False
 
     def do(self):
         if not self.finished:
@@ -379,16 +401,14 @@ class Attack2:
         self.giroro._ensure_image()
         idx = int(self.frame)
 
-        sx, sy, _ = self.giroro.get_screen_pos_and_scale()
-        offset = 50
-
         if self.giroro.face_dir == -1:
             draw_from_cfg(
                 self.giroro.image,
                 'attack2',
                 idx,
                 self.giroro.face_dir,
-                sx - offset, sy,
+                self.giroro.x - 50,
+                self.giroro.y,
                 110, 100
             )
         else:
@@ -397,13 +417,13 @@ class Attack2:
                 'attack2',
                 idx,
                 self.giroro.face_dir,
-                sx + offset, sy,
+                self.giroro.x + 50,
+                self.giroro.y,
                 110, 100
             )
 
 
 class Guard:
-
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -413,7 +433,10 @@ class Guard:
     def enter(self, e):
         self.frame = 0.0
         self.frame_count = SPRITE['guard']['frames']
-        self.giroro.dir = 0  # 가드 중엔 이동 안 함
+        self.giroro.dir = 0
+
+        self.giroro.is_attacking = False
+        self.giroro.attack_hit_done = False
 
     def exit(self, e):
         pass
@@ -425,20 +448,18 @@ class Guard:
         self.giroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, _ = self.giroro.get_screen_pos_and_scale()
-
         draw_from_cfg(
             self.giroro.image,
             'guard',
             idx,
             self.giroro.face_dir,
-            sx, sy,
+            self.giroro.x,
+            self.giroro.y,
             100, 100
         )
 
 
 class Jump:
-
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -454,11 +475,13 @@ class Jump:
 
         self.giroro.vy = self.JUMP_POWER
 
+        self.giroro.is_attacking = False
+        self.giroro.attack_hit_done = False
+
     def exit(self, e):
         pass
 
     def do(self):
-
         self.frame = (self.frame + self.anim_speed) % self.frame_count
 
         self.giroro.y += self.giroro.vy
@@ -471,20 +494,18 @@ class Jump:
         self.giroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, _ = self.giroro.get_screen_pos_and_scale()
-
         draw_from_cfg(
             self.giroro.image,
             'jump',
             idx,
             self.giroro.face_dir,
-            sx, sy,
+            self.giroro.x,
+            self.giroro.y,
             100, 100
         )
 
 
 class Fall:
-
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -519,20 +540,18 @@ class Fall:
         self.giroro._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        sx, sy, _ = self.giroro.get_screen_pos_and_scale()
-
         draw_from_cfg(
             self.giroro.image,
             'fall',
             idx,
             self.giroro.face_dir,
-            sx, sy,
+            self.giroro.x,
+            self.giroro.y,
             100, 100
         )
 
 
 class Skill:
-
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -555,13 +574,15 @@ class Skill:
         self.giroro.dir = 0
         self.move_during_skill = False
 
-    def exit(self, e):
+        self.giroro.is_attacking = True
+        self.giroro.attack_hit_done = False
 
+    def exit(self, e):
         self.giroro.dir = 0
+        self.giroro.is_attacking = False
 
     def do(self):
         if not self.finished:
-
             self.frame += self.anim_speed
 
             if self.frame >= self.frame_count:
@@ -571,16 +592,11 @@ class Skill:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.giroro.dir != 0:
-                    self.giroro.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.giroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.giroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.giroro._ensure_image()
         idx = int(self.frame) % self.frame_count
-
-        sx, sy, _ = self.giroro.get_screen_pos_and_scale()
 
         skill_draw_w = 110
         skill_draw_h = 110
@@ -590,14 +606,14 @@ class Skill:
             'skill',
             idx,
             self.giroro.face_dir,
-            sx, sy + 10,
+            self.giroro.x,
+            self.giroro.y + 10,
             skill_draw_w,
             skill_draw_h
         )
 
 
 class Skill2:
-
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -620,8 +636,12 @@ class Skill2:
         self.giroro.dir = 0
         self.move_during_skill = False
 
+        self.giroro.is_attacking = True
+        self.giroro.attack_hit_done = False
+
     def exit(self, e):
         self.giroro.dir = 0
+        self.giroro.is_attacking = False
 
     def do(self):
         if not self.finished:
@@ -634,16 +654,11 @@ class Skill2:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.giroro.dir != 0:
-                    self.giroro.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.giroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.giroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.giroro._ensure_image()
         idx = int(self.frame) % self.frame_count
-
-        sx, sy, _ = self.giroro.get_screen_pos_and_scale()
 
         skill_draw_w = 110
         skill_draw_h = 110
@@ -653,14 +668,14 @@ class Skill2:
             'skill2',
             idx,
             self.giroro.face_dir,
-            sx, sy + 10,
+            self.giroro.x,
+            self.giroro.y + 10,
             skill_draw_w,
             skill_draw_h
         )
 
 
 class Skill3:
-
     def __init__(self, giroro):
         self.giroro = giroro
         self.frame = 0.0
@@ -675,16 +690,13 @@ class Skill3:
         self.hold_time = 0.35
         self.hold_timer = 0.0
 
-        # 첫 동작(프레임 0)을 얼마나 보여줄지
-        self.start_hold_time = 0.15   # 0.15초 정도 시전 준비 포즈 유지
+        self.start_hold_time = 0.15
         self.start_timer = 0.0
 
     def enter(self, e):
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
-
-        # 타이머 초기화
         self.start_timer = 0.0
 
         if self.giroro.face_dir != 0:
@@ -692,18 +704,19 @@ class Skill3:
 
         self.move_during_skill = (self.giroro.dir != 0)
 
+        self.giroro.is_attacking = True
+        self.giroro.attack_hit_done = False
+
     def exit(self, e):
         self.giroro.dir = 0
+        self.giroro.is_attacking = False
 
     def do(self):
         if not self.finished:
-
-            # 일정 시간 동안 0번 프레임 고정
             if self.start_timer < self.start_hold_time:
                 self.start_timer += game_framework.frame_time
                 return
 
-            # 그 다음부터 프레임을 넘기기 시작
             self.frame += self.anim_speed
 
             if self.move_during_skill:
@@ -717,16 +730,11 @@ class Skill3:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.giroro.dir != 0:
-                    self.giroro.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.giroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.giroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.giroro._ensure_image()
         idx = int(self.frame) % self.frame_count
-
-        sx, sy, _ = self.giroro.get_screen_pos_and_scale()
 
         skill_draw_w = 110
         skill_draw_h = 110
@@ -736,15 +744,68 @@ class Skill3:
             'skill3',
             idx,
             self.giroro.face_dir,
-            sx, sy + 10,
+            self.giroro.x,
+            self.giroro.y + 10,
             skill_draw_w,
             skill_draw_h
         )
 
 
-# ---------------------------
+# -----------------------------
+# Hit 상태 (맞았을 때)
+# -----------------------------
+class Hit:
+    def __init__(self, giroro):
+        self.giroro = giroro
+        self.frame = 0.0
+        self.frame_count = SPRITE['hit']['frames']
+        self.anim_speed = 0.2
+
+        self.timer = 0.0
+        self.duration = 0.3
+        self.knockback_speed = 5.0
+        self.knock_dir = 0
+
+    def enter(self, e):
+        self.frame = 0.0
+        self.timer = 0.0
+
+        self.giroro.is_attacking = False
+        self.giroro.attack_hit_done = False
+
+        self.knock_dir = self.giroro.hit_from_dir if hasattr(self.giroro, 'hit_from_dir') else 0
+
+    def exit(self, e):
+        pass
+
+    def do(self):
+        self.timer += game_framework.frame_time
+        self.frame = (self.frame + self.anim_speed) % self.frame_count
+
+        self.giroro.x += self.knock_dir * self.knockback_speed
+        self.giroro.x = max(50, min(1550, self.giroro.x))
+
+        if self.timer >= self.duration:
+            self.giroro.state_machine.handle_state_event(('HIT_END', None))
+
+    def draw(self):
+        self.giroro._ensure_image()
+        idx = int(self.frame) % self.frame_count
+
+        draw_from_cfg(
+            self.giroro.image,
+            'hit',
+            idx,
+            self.giroro.face_dir,
+            self.giroro.x,
+            self.giroro.y,
+            100, 100
+        )
+
+
+# -----------------------------
 # Giroro 본체
-# ---------------------------
+# -----------------------------
 class Giroro:
     def __init__(self):
         self.x, self.y = 400, 90
@@ -758,96 +819,103 @@ class Giroro:
         self.image_name = 'Giroro_Sheet.png'
         self.image = None
 
+        # HP / 공격 관련
+        self.hp = 100
+        self.is_attacking = False
+        self.attack_hit_done = False
+        self.hit_from_dir = 0
+
         # 상태 인스턴스
-        self.IDLE        = Idle(self)
-        self.RUN         = Run(self)
-        self.ATTACK      = Attack(self)
-        self.ATTACK2     = Attack2(self)
-        self.GUARD       = Guard(self)
-        self.JUMP        = Jump(self)
-        self.FALL        = Fall(self)
-        self.SKILL       = Skill(self)    # 1번 스킬
-        self.SKILL2      = Skill2(self)   # 2번 스킬
-        self.SKILL3      = Skill3(self)   # 3번 스킬
+        self.IDLE    = Idle(self)
+        self.RUN     = Run(self)
+        self.ATTACK  = Attack(self)
+        self.ATTACK2 = Attack2(self)
+        self.GUARD   = Guard(self)
+        self.JUMP    = Jump(self)
+        self.FALL    = Fall(self)
+        self.SKILL   = Skill(self)
+        self.SKILL2  = Skill2(self)
+        self.SKILL3  = Skill3(self)
+        self.HIT     = Hit(self)
 
         self.state_machine = StateMachine(
             self.IDLE,
             {
-
-                # Idle 상태
                 self.IDLE: {
-                    right_down:     self.RUN,
-                    left_down:      self.RUN,
-                    a_down:         self.GUARD,
-                    s_down:         self.ATTACK,
-                    d_down:         self.ATTACK2,
-                    space_down:     self.JUMP,
-                    skill_down:     self.SKILL,     # 1
-                    skill2_down:    self.SKILL2,    # 2
-                    skill3_down:    self.SKILL3,    # 3
+                    right_down:  self.RUN,
+                    left_down:   self.RUN,
+                    a_down:      self.GUARD,
+                    s_down:      self.ATTACK,
+                    d_down:      self.ATTACK2,
+                    space_down:  self.JUMP,
+                    skill_down:  self.SKILL,
+                    skill2_down: self.SKILL2,
+                    skill3_down: self.SKILL3,
+                    got_hit:     self.HIT,
                 },
 
-                # Run 상태
                 self.RUN: {
-                    right_up:       self.IDLE,
-                    left_up:        self.IDLE,
-                    right_down:     self.RUN,
-                    left_down:      self.RUN,
-                    a_down:         self.GUARD,
-                    s_down:         self.ATTACK,
-                    d_down:         self.ATTACK2,
-                    space_down:     self.JUMP,
-                    skill_down:     self.SKILL,
-                    skill2_down:    self.SKILL2,
-                    skill3_down:    self.SKILL3,
+                    right_up:    self.IDLE,
+                    left_up:     self.IDLE,
+                    right_down:  self.RUN,
+                    left_down:   self.RUN,
+                    a_down:      self.GUARD,
+                    s_down:      self.ATTACK,
+                    d_down:      self.ATTACK2,
+                    space_down:  self.JUMP,
+                    skill_down:  self.SKILL,
+                    skill2_down: self.SKILL2,
+                    skill3_down: self.SKILL3,
+                    got_hit:     self.HIT,
                 },
 
-                # Attack 끝나면 Idle/Run
                 self.ATTACK: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.RUN,
+                    got_hit:          self.HIT,
                 },
 
-                # Attack2 끝나면 Idle/Run
                 self.ATTACK2: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.RUN,
+                    got_hit:          self.HIT,
                 },
 
-                # Guard 상태
                 self.GUARD: {
-                    a_up:           self.IDLE,
+                    a_up:   self.IDLE,
+                    got_hit: self.HIT,
                 },
 
-                # Jump 상태
                 self.JUMP: {
-                    jump_to_fall:   self.FALL,
+                    jump_to_fall: self.FALL,
+                    got_hit:      self.HIT,
                 },
 
-                # Fall 상태
                 self.FALL: {
-                    land_idle:      self.IDLE,
-                    land_run:       self.RUN,
+                    land_idle: self.IDLE,
+                    land_run:  self.RUN,
+                    got_hit:   self.HIT,
                 },
 
-                # Skill1 상태
                 self.SKILL: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
+                    got_hit:          self.HIT,
                 },
 
-                # Skill2 상태
                 self.SKILL2: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
+                    got_hit:          self.HIT,
                 },
 
-                # Skill3 상태
                 self.SKILL3: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
+                    got_hit:          self.HIT,
                 },
 
+                self.HIT: {
+                    hit_end: self.IDLE,
+                    got_hit: self.HIT,
+                },
             }
         )
 
@@ -855,11 +923,51 @@ class Giroro:
         if self.image is None:
             self.image = load_image(self.image_name)
 
-    def get_screen_pos_and_scale(self):
-        sx, sy = camera.world_to_screen(self.x, self.y)
-        scale = camera.get_zoom()   # 현재는 안 쓰지만, 구조 맞추기용
-        return sx, sy, scale
+    # --------- 충돌 박스들 ---------
+    def get_hurtbox(self):
+        """몸통 피격 박스"""
+        w = 40
+        h = 80
+        left   = self.x - w / 2
+        right  = self.x + w / 2
+        bottom = self.y - 10
+        top    = bottom + h
+        return (left, bottom, right, top)
 
+    def get_attack_hitbox(self):
+        """공격 판정 박스 (is_attacking & hit_done==False 일 때만 유효)"""
+        if not self.is_attacking or self.attack_hit_done:
+            return None
+
+        range_x = 70
+        w = 40
+        h = 80
+        bottom = self.y - 10
+        top    = bottom + h
+
+        if self.face_dir >= 0:
+            left  = self.x
+            right = self.x + range_x
+        else:
+            left  = self.x - range_x
+            right = self.x
+
+        return (left, bottom, right, top)
+
+    def take_hit(self, damage, attacker_dir):
+        """피격 처리 (play_mode에서 호출)"""
+        self.hp -= damage
+        if self.hp < 0:
+            self.hp = 0
+
+        self.hit_from_dir = attacker_dir if attacker_dir is not None else 0
+
+        self.is_attacking = False
+        self.attack_hit_done = False
+
+        self.state_machine.handle_state_event(('GOT_HIT', None))
+
+    # -----------------------------
     def update(self):
         self.state_machine.update()
 
