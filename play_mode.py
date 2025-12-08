@@ -28,6 +28,48 @@ STAGE_LEFT  = 60
 STAGE_RIGHT = W - 60   # = 1540
 
 
+# ---------- 공격 충돌(AABB) ----------
+def aabb(box1, box2):
+    l1, b1, r1, t1 = box1
+    l2, b2, r2, t2 = box2
+    if r1 < l2: return False
+    if r2 < l1: return False
+    if t1 < b2: return False
+    if t2 < b1: return False
+    return True
+
+
+def handle_attack_collisions():
+    global player, enemy
+    if not player or not enemy:
+        return
+
+    # 1) 플레이어 공격 → 적 피격
+    if hasattr(player, 'get_attack_hitbox') and hasattr(enemy, 'get_hurtbox') and hasattr(enemy, 'take_hit'):
+        atk_box = player.get_attack_hitbox()
+        hurt_box = enemy.get_hurtbox()
+        if atk_box and hurt_box and aabb(atk_box, hurt_box):
+            # 한 번의 공격 애니메이션 동안 한 번만 때리게
+            if hasattr(player, 'attack_hit_done'):
+                if not player.attack_hit_done:
+                    enemy.take_hit(5, player.face_dir)  # 데미지 5 예시
+                    player.attack_hit_done = True
+            else:
+                enemy.take_hit(5, player.face_dir)
+
+    # 2) 적 공격 → 플레이어 피격 (원하면 켜기)
+    if hasattr(enemy, 'get_attack_hitbox') and hasattr(player, 'get_hurtbox') and hasattr(player, 'take_hit'):
+        atk_box = enemy.get_attack_hitbox()
+        hurt_box = player.get_hurtbox()
+        if atk_box and hurt_box and aabb(atk_box, hurt_box):
+            if hasattr(enemy, 'attack_hit_done'):
+                if not enemy.attack_hit_done:
+                    player.take_hit(5, enemy.face_dir)
+                    enemy.attack_hit_done = True
+            else:
+                player.take_hit(5, enemy.face_dir)
+
+
 def set_selected_index(index):
     global selected_character
     selected_character = index
