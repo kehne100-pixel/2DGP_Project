@@ -12,6 +12,7 @@ from Kururu import Kururu
 
 from fighter_ai import FighterAI
 import camera
+from battle_ui import BattleUI   # <-- 새로 추가
 
 W, H = 1600, 900
 
@@ -19,6 +20,8 @@ background = None
 player = None
 enemy = None
 ai = None
+ui = None          # <-- UI 전역
+
 
 selected_character = 0
 CHARACTERS = ['Dororo', 'Tamama', 'Keroro', 'Giroro', 'Kururu']
@@ -47,8 +50,8 @@ def create_fighter(name, is_left=True):
 
     c.y = c.ground_y
 
-    # 양쪽 끝에서 출발 (너랑 전에 맞춰둔 값)
-    MARGIN_X = 120
+    # 양쪽 끝에서 출발 (화면에 보이도록 여유만 조금 빼줌)
+    MARGIN_X = 150
     if is_left:
         c.x = MARGIN_X
         c.face_dir = 1
@@ -83,8 +86,9 @@ def resolve_body_collision():
 
 # --------- 캐릭터가 스테이지 밖으로 못 나가게 (월드 기준) ----------
 def clamp_fighters():
-    STAGE_LEFT  = 60
-    STAGE_RIGHT = W - 60
+    # 스테이지 가장자리 (카메라/배경과 무관하게 x 범위만 제한)
+    STAGE_LEFT  = 50
+    STAGE_RIGHT = W - 50
 
     if player:
         player.x = max(STAGE_LEFT, min(STAGE_RIGHT, player.x))
@@ -92,58 +96,9 @@ def clamp_fighters():
         enemy.x = max(STAGE_LEFT, min(STAGE_RIGHT, enemy.x))
 
 
-# --------- AABB 충돌 ---------
-def rect_overlap(a, b):
-    # a, b: (left, bottom, right, top)
-    if a is None or b is None:
-        return False
-    al, ab, ar, at = a
-    bl, bb, br, bt = b
-    if ar < bl:
-        return False
-    if br < al:
-        return False
-    if at < bb:
-        return False
-    if bt < ab:
-        return False
-    return True
-
-
-# --------- 공격 판정 처리 ---------
-def handle_attack_collisions():
-    global player, enemy
-    if not player or not enemy:
-        return
-
-    # 1) player → enemy
-    if hasattr(player, 'get_attack_hitbox') and hasattr(player, 'is_attacking'):
-        if player.is_attacking and not getattr(player, 'attack_hit_done', False):
-            atk_box = player.get_attack_hitbox() if callable(player.get_attack_hitbox) else None
-            hurt_box = enemy.get_hurtbox() if hasattr(enemy, 'get_hurtbox') and callable(enemy.get_hurtbox) else None
-
-            if rect_overlap(atk_box, hurt_box):
-                # 데미지 값은 일단 10으로
-                if hasattr(enemy, 'take_hit') and callable(enemy.take_hit):
-                    enemy.take_hit(10, player.face_dir)
-                # 한 번만 맞도록 플래그
-                player.attack_hit_done = True
-
-    # 2) enemy → player
-    if hasattr(enemy, 'get_attack_hitbox') and hasattr(enemy, 'is_attacking'):
-        if enemy.is_attacking and not getattr(enemy, 'attack_hit_done', False):
-            atk_box = enemy.get_attack_hitbox() if callable(enemy.get_attack_hitbox) else None
-            hurt_box = player.get_hurtbox() if hasattr(player, 'get_hurtbox') and callable(player.get_hurtbox) else None
-
-            if rect_overlap(atk_box, hurt_box):
-                if hasattr(player, 'take_hit') and callable(player.take_hit):
-                    player.take_hit(10, enemy.face_dir)
-                enemy.attack_hit_done = True
-
-
 # ---------------- 초기화 ----------------
 def init():
-    global background, player, enemy, ai
+    global background, player, enemy, ai, ui
 
     try:
         background = load_image('Keroro_background.png')
@@ -163,21 +118,25 @@ def init():
 
     ai = FighterAI(enemy, player)
 
-    camera.init()   # 처음엔 배율 1.0
+    camera.init()   # 현재는 확대 없이 원래 배경 그대로
     print("✅ Camera init 완료")
+
+    ui = BattleUI()   # <-- UI 생성
+    print("✅ BattleUI 생성 완료")
 
 
 def finish():
-    global background, player, enemy, ai
+    global background, player, enemy, ai, ui
     background = None
     player = None
     enemy = None
     ai = None
+    ui = None
 
 
 # ---------------- 매 프레임 업데이트 ----------------
 def update():
-    global player, enemy, ai, background
+    global player, enemy, ai, background, ui
 
     if player:
         player.update()
@@ -192,11 +151,12 @@ def update():
     # 몸통 충돌
     resolve_body_collision()
 
-    # ✅ 공격 판정
-    handle_attack_collisions()
-
-    # 카메라 중심 & 줌 갱신
+    # 카메라 (지금은 확대 없이, 필요하면 여기서 사용)
     camera.update(player, enemy, background)
+
+    # UI 타이머
+    if ui:
+        ui.update()
 
 
 # ---------------- 그리기 ----------------
@@ -206,7 +166,7 @@ def draw():
     zoom = camera.get_zoom()
     cx, cy = camera.get_center()
 
-    # 배경은 항상 화면 전체를 덮되, 카메라 중심/줌에 맞춰 잘라 그리기
+    # ✅ 배경은 항상 화면 전체를 덮되, 카메라 중심/줌에 맞춰 잘라 그리기
     if background:
         src_w = int(W / zoom)
         src_h = int(H / zoom)
@@ -236,10 +196,15 @@ def draw():
         set_clear_color(0.5, 0.5, 0.5, 1.0)
         clear_canvas()
 
+    # 캐릭터
     if player:
         player.draw()
     if enemy:
         enemy.draw()
+
+    # UI (HP/게이지/타이머)
+    if ui:
+        ui.draw(player, enemy)
 
     update_canvas()
 
