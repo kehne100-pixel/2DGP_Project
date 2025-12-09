@@ -32,6 +32,10 @@ class FighterAI:
         self.guard_active = False
         self.guard_timer = 0.0
 
+        # ★ 가드 연속 사용 방지용 쿨타임
+        #   (0보다 크면 새로운 가드 행동을 하지 않도록 막음)
+        self.guard_cooldown = 0.0
+
         # 의사결정 쿨타임
         self.decision_timer = 0.0
 
@@ -74,14 +78,24 @@ class FighterAI:
             self.current_move_key = None
 
     def _start_guard(self, duration=1.0):
-        """가드 시작 (약 1초 유지)"""
+        """가드 시작 (duration 초 유지)"""
+        # 이미 가드 중이면 무시
         if self.guard_active:
+            return
+
+        # ★ 쿨타임 중이면 가드 시작 안 함
+        if self.guard_cooldown > 0.0:
             return
 
         self.guard_active = True
         self.guard_timer = duration
         self._stop_move()              # 가드 시작할 땐 이동 멈춤
         self._send_keydown(SDLK_a)     # 가드 키 누르기
+
+        # ★ 가드 끝나고도 잠시 동안은 다시 가드 못 하게 쿨타임 부여
+        #   (duration 동안 가드 + extra_cool 만큼 추가 대기)
+        extra_cool = 1.0               # 가드 풀리고 1초 동안은 또 가드 금지
+        self.guard_cooldown = duration + extra_cool
 
     def _stop_guard(self):
         if not self.guard_active:
@@ -123,6 +137,12 @@ class FighterAI:
             if self.guard_timer <= 0:
                 self._stop_guard()
 
+        # ★ 가드 쿨타임 감소
+        if self.guard_cooldown > 0.0:
+            self.guard_cooldown -= dt
+            if self.guard_cooldown < 0.0:
+                self.guard_cooldown = 0.0
+
         # 의사결정 쿨타임 관리
         if self.decision_timer > 0:
             self.decision_timer -= dt
@@ -150,16 +170,15 @@ class FighterAI:
             return
 
         # 2) 가까운 거리: 공격 / 가드 / 스킬 결정
-        #    - 초반: 공격과 가드 반반
-        #    - 체력 30% 이하: 가드 비율 증가 + 스킬 기회 있으면 활용
+        #    → 가드 비율 대폭 축소
         if hp_ratio > 0.3:
-            # Normal: 공격/가드 50:50 + 가끔 스킬
-            guard_prob = 0.5
-            skill_prob = 0.15   # 마나 풀일 때에만 의미 있음
+            # 체력 충분할 때: 가드 적게
+            guard_prob = 0.18      # ★ 예전 0.5 → 0.18
+            skill_prob = 0.15
         else:
-            # 체력 30% 이하: 가드 늘리고 공격 줄이기
-            guard_prob = 0.65
-            skill_prob = 0.20
+            # 체력 30% 이하: 그래도 예전보다 훨씬 적게 가드
+            guard_prob = 0.30      # ★ 예전 0.65 → 0.30
+            skill_prob = 0.22
 
         r = random.random()
 
@@ -183,11 +202,15 @@ class FighterAI:
         # 2-2) 가드 / 공격 결정
         r2 = random.random()
 
-        # 가드는 랜덤하게 가끔 막기 (위에서 guard_prob로 비율 조정)
-        if r2 < guard_prob:
-            # 약 1초 정도 가드 유지
-            self._start_guard(duration=1.0)
-            self.decision_timer = 1.0
+        # ★ 가드: 쿨타임이 없고, 거리가 충분히 가까울 때만, 낮은 확률로
+        if (
+            dist <= self.CLOSE_RANGE + 40 and  # 너무 멀면 가드 안 함
+            self.guard_cooldown <= 0.0 and
+            r2 < guard_prob
+        ):
+            # 약 0.8초 정도 가드 유지
+            self._start_guard(duration=0.8)
+            self.decision_timer = 0.9
             return
         else:
             # 공격1,2 번갈아 사용
