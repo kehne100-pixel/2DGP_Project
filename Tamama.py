@@ -34,7 +34,7 @@ def skill_down(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1
 def skill2_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_2
 def skill3_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_3
 
-# ❗ 맞았을 때 / Hit 끝났을 때
+# 맞았을 때 / Hit 끝났을 때
 def got_hit(e):   return e[0] == 'GOT_HIT'
 def hit_end(e):   return e[0] == 'HIT_END'
 
@@ -73,8 +73,8 @@ SPRITE = {
 
     'attack': {
         'rects': [
-            (213,   1920, 38, 55),
-            (271,  1920, 59, 53),
+            (213, 1920, 38, 55),
+            (271, 1920, 59, 53),
             (339, 1920, 61, 53),
         ],
         'frames': 4,   # 마지막 프레임 홀드 포함
@@ -168,17 +168,14 @@ SPRITE = {
         'flip_when_left': True
     },
 
-
     'hit': {
         'rects': [
-
             (75, 2075, 53, 49),
         ],
         'frames': 1,
         'flip_when_left': True
     },
 }
-# ---------------------------------------------------
 
 
 def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=DRAW_H):
@@ -440,13 +437,11 @@ class Guard:
         self.frame_count = SPRITE['guard']['frames']
         self.tamama.dir = 0
 
-        # ✅ 가드 시작
         self.tamama.is_guarding = True
         self.tamama.is_attacking = False
         self.tamama.attack_hit_done = False
 
     def exit(self, e):
-        # ✅ 가드 종료
         self.tamama.is_guarding = False
 
     def do(self):
@@ -828,8 +823,14 @@ class Tamama:
         self.hp = self.max_hp
         self.max_sp = 100
         self.sp = 0
+        self.skill1_cost = 30   # 스킬1
+        self.skill2_cost = 50   # 스킬2
+        self.skill3_cost = 100  # 스킬3
+
+
         self.is_guarding = False
-        self.has_hit = False
+        self.is_attacking = False
+        self.attack_hit_done = False
 
         # 상태 인스턴스
         self.IDLE    = Idle(self)
@@ -889,7 +890,7 @@ class Tamama:
 
                 self.GUARD: {
                     a_up:   self.IDLE,
-                    # got_hit: self.HIT  # 가드 중엔 데미지/넉백 없음 -> Hit로 안 보냄
+                    # got_hit 없음 = 가드 중에는 Hit 안 들어감
                 },
 
                 self.JUMP: {
@@ -931,7 +932,6 @@ class Tamama:
 
     # --------- 충돌 박스들 ---------
     def get_hurtbox(self):
-        """몸통 피격 박스"""
         w = 40
         h = 80
         left   = self.x - w / 2
@@ -941,7 +941,6 @@ class Tamama:
         return (left, bottom, right, top)
 
     def get_attack_hitbox(self):
-        """공격 판정 박스 (is_attacking & hit_done==False 일 때만 유효)"""
         if not self.is_attacking or self.attack_hit_done:
             return None
 
@@ -961,10 +960,9 @@ class Tamama:
         return (left, bottom, right, top)
 
     def take_hit(self, damage, attacker_dir):
-        """피격 처리 (play_mode에서 호출)"""
-        # ✅ 가드 중이면 데미지도, 넉백도 없음
+        # 가드 중이면 데미지/넉백 X
         if self.is_guarding:
-            return
+            return False
 
         self.hp -= damage
         if self.hp < 0:
@@ -976,6 +974,7 @@ class Tamama:
         self.attack_hit_done = False
 
         self.state_machine.handle_state_event(('GOT_HIT', None))
+        return True
 
     # -----------------------------
     def update(self):
@@ -986,7 +985,14 @@ class Tamama:
         self.state_machine.draw()
 
     def handle_event(self, event):
+        # ★ 스킬 게이지가 부족하면 스킬 입력을 무시
+        if event.type == SDL_KEYDOWN:
+            if event.key == SDLK_1 and self.sp < self.skill1_cost:
+                return
+            if event.key == SDLK_2 and self.sp < self.skill2_cost:
+                return
+            if event.key == SDLK_3 and self.sp < self.skill3_cost:
+                return
+
         self.state_machine.handle_state_event(('INPUT', event))
 
-
-tamama = Tamama()

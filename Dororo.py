@@ -843,6 +843,10 @@ class Dororo:
         self.hp = self.max_hp
         self.max_sp = 100
         self.sp = 0
+        self.skill1_cost = 30   # 스킬1
+        self.skill2_cost = 50   # 스킬2
+        self.skill3_cost = 100  # 스킬3
+
         self.is_guarding = False
         self.has_hit = False
 
@@ -976,21 +980,25 @@ class Dororo:
         return (left, bottom, right, top)
 
     def take_hit(self, damage, attacker_dir):
-        """피격 처리 (play_mode에서 호출)"""
-        # ✅ 가드 중이면 데미지도, 넉백도 없음
+        # 가드 중이면 데미지 없음
         if self.is_guarding:
-            return
+            return False
 
         self.hp -= damage
         if self.hp < 0:
             self.hp = 0
 
+        # 어디서 맞았는지 방향 (넉백용)
         self.hit_from_dir = attacker_dir if attacker_dir is not None else 0
 
+        # 공격 중이던 건 끊어 줌
         self.is_attacking = False
         self.attack_hit_done = False
 
+        # Hit 상태로 전환
         self.state_machine.handle_state_event(('GOT_HIT', None))
+
+        return True
 
     # -----------------------------
     def update(self):

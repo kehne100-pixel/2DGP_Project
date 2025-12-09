@@ -832,6 +832,10 @@ class Giroro:
         self.hp = self.max_hp
         self.max_sp = 100
         self.sp = 0
+        self.skill1_cost = 30   # 스킬1
+        self.skill2_cost = 50   # 스킬2
+        self.skill3_cost = 100  # 스킬3
+
         self.is_guarding = False
         self.has_hit = False
 
@@ -965,21 +969,25 @@ class Giroro:
         return (left, bottom, right, top)
 
     def take_hit(self, damage, attacker_dir):
-        """피격 처리 (play_mode에서 호출)"""
-        # ✅ 가드 중이면 데미지도, 넉백도 없음
+        # 가드 중이면 데미지 없음
         if self.is_guarding:
-            return
+            return False
 
         self.hp -= damage
         if self.hp < 0:
             self.hp = 0
 
+        # 어디서 맞았는지 방향 (넉백용)
         self.hit_from_dir = attacker_dir if attacker_dir is not None else 0
 
+        # 공격 중이던 건 끊어 줌
         self.is_attacking = False
         self.attack_hit_done = False
 
+        # Hit 상태로 전환
         self.state_machine.handle_state_event(('GOT_HIT', None))
+
+        return True
 
     # -----------------------------
     def update(self):
@@ -990,6 +998,15 @@ class Giroro:
         self.state_machine.draw()
 
     def handle_event(self, event):
+        # ★ 스킬 게이지가 부족하면 스킬 입력을 무시
+        if event.type == SDL_KEYDOWN:
+            if event.key == SDLK_1 and self.sp < self.skill1_cost:
+                return
+            if event.key == SDLK_2 and self.sp < self.skill2_cost:
+                return
+            if event.key == SDLK_3 and self.sp < self.skill3_cost:
+                return
+
         self.state_machine.handle_state_event(('INPUT', event))
 
 
