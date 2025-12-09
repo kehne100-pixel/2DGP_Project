@@ -26,7 +26,6 @@ player = None
 enemy = None
 ai = None
 
-# 캐릭터 선택
 selected_character = 0
 CHARACTERS = ['Dororo', 'Tamama', 'Keroro', 'Giroro', 'Kururu']
 
@@ -67,7 +66,6 @@ def create_fighter(name, is_left=True):
         print(f"[WARN] Unknown fighter name: {name}, use Keroro")
         c = Keroro()
 
-    # y는 각 캐릭터 클래스의 ground_y 기준
     c.y = c.ground_y
 
     # 양 끝에서 시작
@@ -270,19 +268,20 @@ def init():
     # 숫자 이미지(0~9, :)
     digit_images = {}
     for ch in '0123456789':
-        fname = f'num_{ch}.png'   # 예: num_0.png, num_1.png ...
+        # 👉 사용자가 만든 파일 이름에 맞춤: timer0.png ~ timer9.png
+        fname = f'timer{ch}.png'
         try:
             digit_images[ch] = load_image(fname)
         except:
             digit_images[ch] = None
             print(f"⚠️ {fname} 로드 실패")
 
-    # 콜론 이미지 (없으면 None 으로 두고, 나중에 그냥 건너뜀)
+    # 콜론 이미지 (원하면 timer_colon.png 로 만들어두기)
     try:
-        digit_images[':'] = load_image('num_colon.png')
+        digit_images[':'] = load_image('timer_colon.png')
     except:
         digit_images[':'] = None
-        print("⚠️ num_colon.png 로드 실패")
+        print("⚠️ timer_colon.png 로드 실패 (없으면 그냥 건너뜀)")
 
     # 라운드 타이머 시작 시각
     round_start_time = get_time()
@@ -329,10 +328,6 @@ def update():
 # UI 그리기 (HP/SP)
 # -------------------------------------------------
 def draw_hp_sp_bar(fighter, side):
-    """
-    side: 'left' or 'right'
-    fighter: Tamama, Dororo, ...
-    """
     global ui_hp_frame, ui_hp_fill, ui_sp_fill
 
     if fighter is None:
@@ -346,20 +341,19 @@ def draw_hp_sp_bar(fighter, side):
     hp_ratio = 0.0 if max_hp <= 0 else max(0.0, min(1.0, hp / max_hp))
     sp_ratio = 0.0 if max_sp <= 0 else max(0.0, min(1.0, sp / max_sp))
 
-    # 화면 맨 위에서 조금 내려오게 (기존보다 40px 정도 아래)
-    frame_y = H - 110
-    frame_w = 420
-    frame_h = 55
+    # ★ 더 아래로 + 더 작게
+    frame_y = H - 210        # 예전: H - 180
+    frame_w = 340            # 예전: 420
+    frame_h = 40             # 예전: 55
 
-    bar_w_max = 340
-    bar_h = 16
-    hp_y = frame_y + 8
-    sp_y = frame_y - 10
+    bar_w_max = 280          # 예전: 340
+    bar_h = 12               # 예전: 16
+    hp_y = frame_y + 6
+    sp_y = frame_y - 8
 
     if side == 'left':
-        frame_x = 260
+        frame_x = 230
 
-        # 프레임
         if ui_hp_frame:
             ui_hp_frame.clip_draw(
                 ui_hp_frame.w // 2, ui_hp_frame.h // 2,
@@ -368,7 +362,6 @@ def draw_hp_sp_bar(fighter, side):
                 frame_w, frame_h
             )
 
-        # HP (왼->오)
         if ui_hp_fill and hp_ratio > 0.0:
             w = int(bar_w_max * hp_ratio)
             cx = frame_x - bar_w_max / 2 + w / 2
@@ -379,7 +372,6 @@ def draw_hp_sp_bar(fighter, side):
                 w, bar_h
             )
 
-        # SP (왼->오)
         if ui_sp_fill and sp_ratio > 0.0:
             w = int(bar_w_max * sp_ratio)
             cx = frame_x - bar_w_max / 2 + w / 2
@@ -390,10 +382,9 @@ def draw_hp_sp_bar(fighter, side):
                 w, bar_h
             )
 
-    else:  # side == 'right'
-        frame_x = W - 260
+    else:  # right
+        frame_x = W - 230
 
-        # 프레임 (좌우 반전)
         if ui_hp_frame:
             ui_hp_frame.clip_composite_draw(
                 ui_hp_frame.w // 2, ui_hp_frame.h // 2,
@@ -403,7 +394,6 @@ def draw_hp_sp_bar(fighter, side):
                 frame_w, frame_h
             )
 
-        # HP (오른쪽부터 줄어드는 느낌)
         if ui_hp_fill and hp_ratio > 0.0:
             w = int(bar_w_max * hp_ratio)
             cx = frame_x + bar_w_max / 2 - w / 2
@@ -415,7 +405,6 @@ def draw_hp_sp_bar(fighter, side):
                 w, bar_h
             )
 
-        # SP
         if ui_sp_fill and sp_ratio > 0.0:
             w = int(bar_w_max * sp_ratio)
             cx = frame_x + bar_w_max / 2 - w / 2
@@ -428,9 +417,7 @@ def draw_hp_sp_bar(fighter, side):
             )
 
 
-# -------------------------------------------------
-# 타이머 UI (숫자 이미지는 digit_images 사용)
-# -------------------------------------------------
+
 def draw_timer_ui():
     global ui_timer_bg, digit_images
 
@@ -438,10 +425,11 @@ def draw_timer_ui():
         return
 
     cx = W // 2
-    cy = H - 120        # 기존보다 아래로 내림
+    cy = H - 210        # 예전: H - 185  (조금 더 아래)
 
-    dest_w = 220
-    dest_h = 110
+    dest_w = 180        # 예전: 220
+    dest_h = 90         # 예전: 110
+
 
     # 타이머 배경
     ui_timer_bg.clip_draw(
@@ -458,13 +446,13 @@ def draw_timer_ui():
     text = f"{mm:02}:{ss:02}"   # 예: "01:40"
 
     # 숫자/콜론 이미지 크기 (적당히 조절)
-    digit_w = 28
-    digit_h = 40
-    gap = 2                       # 숫자 사이 간격
+    digit_w = 26
+    digit_h = 38
+    gap = 2
 
     total_width = len(text) * (digit_w + gap) - gap
     start_x = cx - total_width / 2
-    base_y = cy - 20              # 박스 안의 y 위치
+    base_y = cy - 6   # 박스 안의 y 위치
 
     for ch in text:
         img = digit_images.get(ch, None)
