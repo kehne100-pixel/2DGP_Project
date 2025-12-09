@@ -1009,6 +1009,15 @@ class Dororo:
         self.state_machine.draw()
 
     def handle_event(self, event):
+        # ★ 스킬 게이지가 부족하면 스킬 입력을 무시
+        if event.type == SDL_KEYDOWN:
+            if event.key == SDLK_1 and self.sp < self.skill1_cost:
+                return
+            if event.key == SDLK_2 and self.sp < self.skill2_cost:
+                return
+            if event.key == SDLK_3 and self.sp < self.skill3_cost:
+                return
+
         self.state_machine.handle_state_event(('INPUT', event))
 
 
