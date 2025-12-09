@@ -223,6 +223,7 @@ class Idle:
 
         self.giroro.is_attacking = False
         self.giroro.attack_hit_done = False
+        self.giroro.is_guarding = False  # Idle 들어오면 가드 해제 상태
 
     def exit(self, e):
         pass
@@ -435,11 +436,14 @@ class Guard:
         self.frame_count = SPRITE['guard']['frames']
         self.giroro.dir = 0
 
+        # ✅ 가드 시작
+        self.giroro.is_guarding = True
         self.giroro.is_attacking = False
         self.giroro.attack_hit_done = False
 
     def exit(self, e):
-        pass
+        # ✅ 가드 종료
+        self.giroro.is_guarding = False
 
     def do(self):
         self.frame = (self.frame + self.anim_speed) % self.frame_count
@@ -477,6 +481,7 @@ class Jump:
 
         self.giroro.is_attacking = False
         self.giroro.attack_hit_done = False
+        self.giroro.is_guarding = False
 
     def exit(self, e):
         pass
@@ -576,6 +581,7 @@ class Skill:
 
         self.giroro.is_attacking = True
         self.giroro.attack_hit_done = False
+        self.giroro.is_guarding = False
 
     def exit(self, e):
         self.giroro.dir = 0
@@ -638,6 +644,7 @@ class Skill2:
 
         self.giroro.is_attacking = True
         self.giroro.attack_hit_done = False
+        self.giroro.is_guarding = False
 
     def exit(self, e):
         self.giroro.dir = 0
@@ -706,6 +713,7 @@ class Skill3:
 
         self.giroro.is_attacking = True
         self.giroro.attack_hit_done = False
+        self.giroro.is_guarding = False
 
     def exit(self, e):
         self.giroro.dir = 0
@@ -772,6 +780,7 @@ class Hit:
 
         self.giroro.is_attacking = False
         self.giroro.attack_hit_done = False
+        self.giroro.is_guarding = False  # 맞는 동안은 가드 아님
 
         self.knock_dir = self.giroro.hit_from_dir if hasattr(self.giroro, 'hit_from_dir') else 0
 
@@ -819,11 +828,12 @@ class Giroro:
         self.image_name = 'Giroro_Sheet.png'
         self.image = None
 
-        # HP / 공격 관련
+        # HP / 공격 / 가드 관련
         self.hp = 100
         self.is_attacking = False
         self.attack_hit_done = False
         self.hit_from_dir = 0
+        self.is_guarding = False  # ✅ 가드 여부 플래그
 
         # 상태 인스턴스
         self.IDLE    = Idle(self)
@@ -883,7 +893,7 @@ class Giroro:
 
                 self.GUARD: {
                     a_up:   self.IDLE,
-                    got_hit: self.HIT,
+                    # got_hit: self.HIT,  # ❗ 가드 중일 땐 데미지/넉백 없음 -> Hit로 안 보냄
                 },
 
                 self.JUMP: {
@@ -956,6 +966,10 @@ class Giroro:
 
     def take_hit(self, damage, attacker_dir):
         """피격 처리 (play_mode에서 호출)"""
+        # ✅ 가드 중이면 데미지도, 넉백도 없음
+        if self.is_guarding:
+            return
+
         self.hp -= damage
         if self.hp < 0:
             self.hp = 0

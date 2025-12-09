@@ -11,7 +11,9 @@ from sdl2 import (
 import game_framework
 from state_machine import StateMachine
 
-
+# -----------------------------
+# 이벤트 체크 함수들
+# -----------------------------
 def right_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_RIGHT
 def right_up(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYUP   and e[1].key == SDLK_RIGHT
 def left_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_LEFT
@@ -24,17 +26,16 @@ def space_down(e): return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].
 def Time_out(e):   return e[0] == 'TIME_OUT'
 def attack_done_idle(e): return e[0] == 'ATTACK_DONE_IDLE'
 def attack_done_run(e):  return e[0] == 'ATTACK_DONE_RUN'
-def jump_to_fall(e):     return e[0] == 'JUMP_TO_FALL'
-def land_idle(e):        return e[0] == 'LAND_IDLE'
-def land_run(e):         return e[0] == 'LAND_RUN'
+def jump_to_fall(e): return e[0] == 'JUMP_TO_FALL'
+def land_idle(e):    return e[0] == 'LAND_IDLE'
+def land_run(e):     return e[0] == 'LAND_RUN'
 
-# 스킬 입력
 def skill_down(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_1
 def skill2_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_2
 def skill3_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_3
 
-# 피격 이벤트
-def get_hit(e):   return e[0] == 'GET_HIT'
+# ❗ 맞았을 때 / Hit 끝났을 때
+def got_hit(e):   return e[0] == 'GOT_HIT'
 def hit_end(e):   return e[0] == 'HIT_END'
 
 
@@ -83,9 +84,9 @@ SPRITE = {
 
     'attack2': {
         'rects': [
-            (4,   2514, 41, 50),
-            (48,  2514, 64, 54),
-            (120, 2514, 53, 56),
+            (4,  2514, 41, 50),
+            (48, 2514, 64, 54),
+            (120,2514, 53, 56),
         ],
         'frames': 3,
         'flip_when_left': True
@@ -157,14 +158,13 @@ SPRITE = {
     },
 
 
-     'hit': {
-         'rects': [
+    'hit': {
+        'rects': [
             (0, 505, 48, 48),
-
-         ],
-         'frames': 1,
-         'flip_when_left': True
-     },
+        ],
+        'frames': 1,
+        'flip_when_left': True
+    },
 }
 
 
@@ -201,6 +201,9 @@ Run_frames_per_action = 4
 Run_frame_per_second = Run_frames_per_action * Run_action_per_time
 
 
+# -----------------------------
+# 상태들
+# -----------------------------
 class Idle:
     def __init__(self, dororo):
         self.dororo = dororo
@@ -211,6 +214,10 @@ class Idle:
         self.dororo.dir = 0
         self.dororo.wait_start_time = get_time()
         self.frame = 0.0
+
+        self.dororo.is_attacking = False
+        self.dororo.attack_hit_done = False
+        self.dororo.is_guarding = False  # idle 들어오면 가드 해제
 
     def exit(self, e):
         pass
@@ -229,8 +236,7 @@ class Idle:
             self.dororo.face_dir,
             self.dororo.x,
             self.dororo.y,
-            100,
-            100
+            100, 100
         )
 
 
@@ -272,8 +278,7 @@ class Run:
             self.dororo.face_dir,
             self.dororo.x,
             self.dororo.y,
-            100,
-            100
+            100, 100
         )
 
 
@@ -302,9 +307,9 @@ class Attack:
 
         self.move_during_attack = (self.dororo.dir != 0)
 
-        # 공격 판정용 플래그
         self.dororo.is_attacking = True
         self.dororo.attack_hit_done = False
+        self.dororo.is_guarding = False
 
     def exit(self, e):
         self.dororo.is_attacking = False
@@ -351,8 +356,7 @@ class Attack:
             self.dororo.face_dir,
             self.dororo.x,
             self.dororo.y,
-            110,
-            110
+            110, 110
         )
 
 
@@ -380,6 +384,7 @@ class Attack2:
 
         self.dororo.is_attacking = True
         self.dororo.attack_hit_done = False
+        self.dororo.is_guarding = False
 
     def exit(self, e):
         self.dororo.is_attacking = False
@@ -443,8 +448,14 @@ class Guard:
         self.frame_count = SPRITE['guard']['frames']
         self.dororo.dir = 0
 
+        # ✅ 가드 시작
+        self.dororo.is_guarding = True
+        self.dororo.is_attacking = False
+        self.dororo.attack_hit_done = False
+
     def exit(self, e):
-        pass
+        # ✅ 가드 종료
+        self.dororo.is_guarding = False
 
     def do(self):
         self.frame = (self.frame + self.anim_speed) % self.frame_count
@@ -480,6 +491,10 @@ class Jump:
         self.frame_count = SPRITE['jump']['frames']
 
         self.dororo.vy = self.JUMP_POWER
+
+        self.dororo.is_attacking = False
+        self.dororo.attack_hit_done = False
+        self.dororo.is_guarding = False
 
     def exit(self, e):
         pass
@@ -587,6 +602,7 @@ class Skill:
 
         self.dororo.is_attacking = True
         self.dororo.attack_hit_done = False
+        self.dororo.is_guarding = False
 
     def exit(self, e):
         self.dororo.dir = 0
@@ -650,6 +666,7 @@ class Skill2:
 
         self.dororo.is_attacking = True
         self.dororo.attack_hit_done = False
+        self.dororo.is_guarding = False
 
     def exit(self, e):
         self.dororo.dir = 0
@@ -714,6 +731,7 @@ class Skill3:
 
         self.dororo.is_attacking = True
         self.dororo.attack_hit_done = False
+        self.dororo.is_guarding = False
 
     def exit(self, e):
         self.dororo.dir = 0
@@ -752,61 +770,62 @@ class Skill3:
         )
 
 
+# -----------------------------
+# Hit 상태 (맞았을 때)
+# -----------------------------
 class Hit:
-    """맞았을 때 피격 모션 상태"""
     def __init__(self, dororo):
         self.dororo = dororo
         self.frame = 0.0
-        self.frame_count = SPRITE['hit']['frames'] if 'hit' in SPRITE else 1
-        self.anim_speed = 10.0
-        self.duration = 0.3
+        self.frame_count = SPRITE['hit']['frames']
+        self.anim_speed = 0.2
+
         self.timer = 0.0
+        self.duration = 0.3
+        self.knockback_speed = 5.0
+        self.knock_dir = 0
 
     def enter(self, e):
-        self.timer = 0.0
         self.frame = 0.0
-        self.dororo.dir = 0
+        self.timer = 0.0
+
         self.dororo.is_attacking = False
+        self.dororo.attack_hit_done = False
+        self.dororo.is_guarding = False  # 맞는 동안은 가드 아님
+
+        self.knock_dir = self.dororo.hit_from_dir if hasattr(self.dororo, 'hit_from_dir') else 0
 
     def exit(self, e):
         pass
 
     def do(self):
         self.timer += game_framework.frame_time
-        if self.frame_count > 0 and 'hit' in SPRITE:
-            self.frame = (self.frame + self.anim_speed * game_framework.frame_time) % self.frame_count
+        self.frame = (self.frame + self.anim_speed) % self.frame_count
+
+        self.dororo.x += self.knock_dir * self.knockback_speed
+        self.dororo.x = max(50, min(1550, self.dororo.x))
 
         if self.timer >= self.duration:
             self.dororo.state_machine.handle_state_event(('HIT_END', None))
 
     def draw(self):
         self.dororo._ensure_image()
-        if 'hit' in SPRITE:
-            idx = int(self.frame) % self.frame_count
-            draw_from_cfg(
-                self.dororo.image,
-                'hit',
-                idx,
-                self.dororo.face_dir,
-                self.dororo.x,
-                self.dororo.y,
-                100,
-                100
-            )
-        else:
-            # hit 스프라이트 안 넣었을 때는 idle로 대체
-            draw_from_cfg(
-                self.dororo.image,
-                'idle',
-                0,
-                self.dororo.face_dir,
-                self.dororo.x,
-                self.dororo.y,
-                100,
-                100
-            )
+        idx = int(self.frame) % self.frame_count
+
+        draw_from_cfg(
+            self.dororo.image,
+            'hit',
+            idx,
+            self.dororo.face_dir,
+            self.dororo.x,
+            self.dororo.y,
+            100, 100
+        )
 
 
+# -----------------------------
+# Dororo 본체
+# -----------------------------
 class Dororo:
     def __init__(self):
         self.x, self.y = 400, 90
@@ -817,14 +836,17 @@ class Dororo:
         self.vy = 0.0
         self.ground_y = 90
 
-        # HP & 공격 관련 플래그
-        self.hp = 100
-        self.is_attacking = False
-        self.attack_hit_done = False
-
         self.image_name = 'Dororo_Sheet.png'
         self.image = None
 
+        # HP / 공격 / 가드 관련
+        self.hp = 100
+        self.is_attacking = False
+        self.attack_hit_done = False
+        self.hit_from_dir = 0
+        self.is_guarding = False
+
+        # 상태 인스턴스
         self.IDLE    = Idle(self)
         self.RUN     = Run(self)
         self.ATTACK  = Attack(self)
@@ -850,7 +872,7 @@ class Dororo:
                     skill_down:  self.SKILL,
                     skill2_down: self.SKILL2,
                     skill3_down: self.SKILL3,
-                    get_hit:     self.HIT,
+                    got_hit:     self.HIT,
                 },
 
                 self.RUN: {
@@ -865,54 +887,55 @@ class Dororo:
                     skill_down:  self.SKILL,
                     skill2_down: self.SKILL2,
                     skill3_down: self.SKILL3,
-                    get_hit:     self.HIT,
+                    got_hit:     self.HIT,
                 },
 
                 self.ATTACK: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.IDLE,
-                    get_hit:          self.HIT,
+                    got_hit:          self.HIT,
                 },
 
                 self.ATTACK2: {
                     attack_done_idle: self.IDLE,
                     attack_done_run:  self.IDLE,
-                    get_hit:          self.HIT,
+                    got_hit:          self.HIT,
                 },
 
                 self.GUARD: {
-                    a_up:    self.IDLE,
-                    get_hit: self.HIT,
+                    a_up:   self.IDLE,
+
                 },
 
                 self.JUMP: {
                     jump_to_fall: self.FALL,
-                    get_hit:      self.HIT,
+                    got_hit:      self.HIT,
                 },
 
                 self.FALL: {
                     land_idle: self.IDLE,
                     land_run:  self.RUN,
-                    get_hit:   self.HIT,
+                    got_hit:   self.HIT,
                 },
 
                 self.SKILL: {
                     attack_done_idle: self.IDLE,
-                    get_hit:          self.HIT,
+                    got_hit:          self.HIT,
                 },
 
                 self.SKILL2: {
                     attack_done_idle: self.IDLE,
-                    get_hit:          self.HIT,
+                    got_hit:          self.HIT,
                 },
 
                 self.SKILL3: {
                     attack_done_idle: self.IDLE,
-                    get_hit:          self.HIT,
+                    got_hit:          self.HIT,
                 },
 
                 self.HIT: {
                     hit_end: self.IDLE,
+                    got_hit: self.HIT,
                 },
             }
         )
@@ -921,52 +944,55 @@ class Dororo:
         if self.image is None:
             self.image = load_image(self.image_name)
 
-    # ====== 히트박스 / 허트박스 / 데미지 처리 ======
-
+    # --------- 충돌 박스들 ---------
     def get_hurtbox(self):
-        """내가 맞을 영역(몸통 박스)"""
-        half_w = 20
-        h = 70
-        left  = self.x - half_w
-        right = self.x + half_w
-        bottom = self.y
-        top    = self.y + h
+        """몸통 피격 박스"""
+        w = 40
+        h = 80
+        left   = self.x - w / 2
+        right  = self.x + w / 2
+        bottom = self.y - 10
+        top    = bottom + h
         return (left, bottom, right, top)
 
     def get_attack_hitbox(self):
-        """공격 판정 박스 (공격 중일 때만 유효)"""
-        if not self.is_attacking:
+        """공격 판정 박스 (is_attacking & hit_done==False 일 때만 유효)"""
+        if not self.is_attacking or self.attack_hit_done:
             return None
 
-        front = 40
-        half_w = 20
-        h = 60
+        range_x = 70
+        w = 40
+        h = 80
+        bottom = self.y - 10
+        top    = bottom + h
 
-        if self.face_dir == 1:
-            left  = self.x + half_w
-            right = self.x + half_w + front
+        if self.face_dir >= 0:
+            left  = self.x
+            right = self.x + range_x
         else:
-            left  = self.x - half_w - front
-            right = self.x - half_w
+            left  = self.x - range_x
+            right = self.x
 
-        bottom = self.y
-        top    = self.y + h
         return (left, bottom, right, top)
 
-    def take_hit(self, damage, from_dir):
-        """맞았을 때 호출"""
+    def take_hit(self, damage, attacker_dir):
+        """피격 처리 (play_mode에서 호출)"""
+        # ✅ 가드 중이면 데미지도, 넉백도 없음
+        if self.is_guarding:
+            return
+
         self.hp -= damage
         if self.hp < 0:
             self.hp = 0
 
-        # 간단 넉백
-        self.x += from_dir * 10
-        self.x = max(50, min(1550, self.x))
+        self.hit_from_dir = attacker_dir if attacker_dir is not None else 0
 
-        self.state_machine.handle_state_event(('GET_HIT', None))
+        self.is_attacking = False
+        self.attack_hit_done = False
 
-    # ====== 기본 루프 ======
+        self.state_machine.handle_state_event(('GOT_HIT', None))
 
+    # -----------------------------
     def update(self):
         self.state_machine.update()
 
