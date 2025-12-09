@@ -11,7 +11,6 @@ from sdl2 import (
 import game_framework
 from state_machine import StateMachine
 
-
 # -----------------------------
 # 이벤트 체크 함수들
 # -----------------------------
@@ -179,6 +178,7 @@ SPRITE = {
         'flip_when_left': True
     },
 }
+# ---------------------------------------------------
 
 
 def draw_from_cfg(image, key, frame_idx, face_dir, x, y, draw_w=DRAW_W, draw_h=DRAW_H):
@@ -215,7 +215,7 @@ Run_frame_per_second = Run_frames_per_action * Run_action_per_time
 
 
 # -----------------------------
-# 상태 클래스들
+# 상태들
 # -----------------------------
 class Idle:
     def __init__(self, tamama):
@@ -227,9 +227,10 @@ class Idle:
         self.tamama.dir = 0
         self.tamama.wait_start_time = get_time()
         self.frame = 0.0
-        # Idle로 들어올 때는 공격 중 아님
+
         self.tamama.is_attacking = False
         self.tamama.attack_hit_done = False
+        self.tamama.is_guarding = False
 
     def exit(self, e):
         pass
@@ -282,6 +283,7 @@ class Run:
 
     def draw(self):
         self.tamama._ensure_image()
+
         draw_from_cfg(
             self.tamama.image,
             'run',
@@ -296,69 +298,47 @@ class Run:
 class Attack:
     def __init__(self, tamama):
         self.tamama = tamama
-
+        self.frame = 0.0
         self.frame_count = SPRITE['attack']['frames']
-        self.frame_durations = [0.16, 0.06, 0.12, 0.18]
 
-        self.frame = 0
-        self.timer = 0.0
-
-        self.SPEED = 7
+        self.SPEED = 6
         self.move_during_attack = False
 
+        self.anim_speed = 0.18
         self.finished = False
+
         self.hold_time = 0.15
         self.hold_timer = 0.0
 
     def enter(self, e):
-        self.frame = 0
-        self.timer = 0.0
+        self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
 
         self.move_during_attack = (self.tamama.dir != 0)
 
-        # 공격 시작
         self.tamama.is_attacking = True
         self.tamama.attack_hit_done = False
+        self.tamama.is_guarding = False
 
     def exit(self, e):
-        # 공격 끝
         self.tamama.is_attacking = False
 
     def do(self):
         if not self.finished:
-            self.timer += game_framework.frame_time
-
-            if self.timer >= self.frame_durations[self.frame]:
-                self.timer -= self.frame_durations[self.frame]
-                self.frame += 1
-
-                if self.frame >= self.frame_count:
-                    self.frame = self.frame_count - 1
-                    self.finished = True
-                    return
+            self.frame += self.anim_speed
 
             if self.move_during_attack:
-                if self.frame == 0:
-                    dx = self.tamama.dir * (self.SPEED * 0.3)
-                elif self.frame == 1:
-                    dx = self.tamama.dir * (self.SPEED * 1.0)
-                elif self.frame == 2:
-                    dx = self.tamama.dir * (self.SPEED * 0.1)
-                else:
-                    dx = 0
-
-                self.tamama.x += dx
+                self.tamama.x += self.tamama.dir * self.SPEED
                 self.tamama.x = max(50, min(1550, self.tamama.x))
+
+            if self.frame >= self.frame_count:
+                self.frame = self.frame_count - 1
+                self.finished = True
         else:
             self.hold_timer += game_framework.frame_time
-
             if self.hold_timer >= self.hold_time:
-                if self.move_during_attack:
-                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.tamama._ensure_image()
@@ -384,7 +364,7 @@ class Attack2:
         self.SPEED = 8
         self.move_during_attack = False
 
-        self.anim_speed = 0.1
+        self.anim_speed = 0.12
         self.finished = False
 
         self.hold_time = 0.15
@@ -397,12 +377,11 @@ class Attack2:
 
         self.move_during_attack = (self.tamama.dir != 0)
 
-        # 공격 시작
         self.tamama.is_attacking = True
         self.tamama.attack_hit_done = False
+        self.tamama.is_guarding = False
 
     def exit(self, e):
-        # 공격 끝
         self.tamama.is_attacking = False
 
     def do(self):
@@ -418,16 +397,14 @@ class Attack2:
                 self.finished = True
         else:
             self.hold_timer += game_framework.frame_time
-
             if self.hold_timer >= self.hold_time:
-                if self.move_during_attack:
-                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.tamama._ensure_image()
         idx = int(self.frame)
+
+        offset = 50
 
         if self.tamama.face_dir == -1:
             draw_from_cfg(
@@ -435,7 +412,7 @@ class Attack2:
                 'attack2',
                 idx,
                 self.tamama.face_dir,
-                self.tamama.x - 50,
+                self.tamama.x - offset,
                 self.tamama.y,
                 110, 100
             )
@@ -445,7 +422,7 @@ class Attack2:
                 'attack2',
                 idx,
                 self.tamama.face_dir,
-                self.tamama.x + 50,
+                self.tamama.x + offset,
                 self.tamama.y,
                 110, 100
             )
@@ -463,11 +440,14 @@ class Guard:
         self.frame_count = SPRITE['guard']['frames']
         self.tamama.dir = 0
 
+        # ✅ 가드 시작
+        self.tamama.is_guarding = True
         self.tamama.is_attacking = False
         self.tamama.attack_hit_done = False
 
     def exit(self, e):
-        pass
+        # ✅ 가드 종료
+        self.tamama.is_guarding = False
 
     def do(self):
         self.frame = (self.frame + self.anim_speed) % self.frame_count
@@ -505,6 +485,7 @@ class Jump:
 
         self.tamama.is_attacking = False
         self.tamama.attack_hit_done = False
+        self.tamama.is_guarding = False
 
     def exit(self, e):
         pass
@@ -585,13 +566,13 @@ class Skill:
         self.frame = 0.0
         self.frame_count = SPRITE['skill']['frames']
 
-        self.SPEED = 3
+        self.SPEED = 4.0
         self.move_during_skill = False
 
         self.anim_speed = 0.08
         self.finished = False
 
-        self.hold_time = 0.5
+        self.hold_time = 0.35
         self.hold_timer = 0.0
 
     def enter(self, e):
@@ -599,19 +580,29 @@ class Skill:
         self.finished = False
         self.hold_timer = 0.0
 
-        self.tamama.dir = 0
-        self.move_during_skill = False
+        if self.tamama.dir == 0:
+            if self.tamama.face_dir != 0:
+                self.tamama.dir = self.tamama.face_dir
+            else:
+                self.tamama.dir = 1
 
-        # 필요하면 스킬도 공격 취급 가능
+        self.move_during_skill = True
+
         self.tamama.is_attacking = True
         self.tamama.attack_hit_done = False
+        self.tamama.is_guarding = False
 
     def exit(self, e):
         self.tamama.dir = 0
+        self.move_during_skill = False
         self.tamama.is_attacking = False
 
     def do(self):
         if not self.finished:
+            if self.move_during_skill:
+                self.tamama.x += self.tamama.dir * self.SPEED
+                self.tamama.x = max(50, min(1550, self.tamama.x))
+
             self.frame += self.anim_speed
 
             if self.frame >= self.frame_count:
@@ -619,16 +610,12 @@ class Skill:
                 self.finished = True
         else:
             self.hold_timer += game_framework.frame_time
-
             if self.hold_timer >= self.hold_time:
                 self.tamama.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
-
-        skill_draw_w = 110
-        skill_draw_h = 110
 
         draw_from_cfg(
             self.tamama.image,
@@ -637,8 +624,7 @@ class Skill:
             self.tamama.face_dir,
             self.tamama.x,
             self.tamama.y + 10,
-            skill_draw_w,
-            skill_draw_h
+            110, 110
         )
 
 
@@ -667,6 +653,7 @@ class Skill2:
 
         self.tamama.is_attacking = True
         self.tamama.attack_hit_done = False
+        self.tamama.is_guarding = False
 
     def exit(self, e):
         self.tamama.dir = 0
@@ -689,9 +676,6 @@ class Skill2:
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        skill_draw_w = 110
-        skill_draw_h = 110
-
         draw_from_cfg(
             self.tamama.image,
             'skill2',
@@ -699,8 +683,7 @@ class Skill2:
             self.tamama.face_dir,
             self.tamama.x,
             self.tamama.y + 10,
-            skill_draw_w,
-            skill_draw_h
+            110, 110
         )
 
 
@@ -726,6 +709,7 @@ class Skill3:
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
+
         self.start_timer = 0.0
 
         self.tamama.dir = 0
@@ -733,6 +717,7 @@ class Skill3:
 
         self.tamama.is_attacking = True
         self.tamama.attack_hit_done = False
+        self.tamama.is_guarding = False
 
     def exit(self, e):
         self.tamama.dir = 0
@@ -759,9 +744,6 @@ class Skill3:
         self.tamama._ensure_image()
         idx = int(self.frame) % self.frame_count
 
-        skill_draw_w = 110
-        skill_draw_h = 110
-
         draw_from_cfg(
             self.tamama.image,
             'skill3',
@@ -769,8 +751,7 @@ class Skill3:
             self.tamama.face_dir,
             self.tamama.x,
             self.tamama.y + 10,
-            skill_draw_w,
-            skill_draw_h
+            110, 110
         )
 
 
@@ -785,7 +766,7 @@ class Hit:
         self.anim_speed = 0.2
 
         self.timer = 0.0
-        self.duration = 0.3  # 스턴 시간
+        self.duration = 0.3
         self.knockback_speed = 5.0
         self.knock_dir = 0
 
@@ -793,11 +774,10 @@ class Hit:
         self.frame = 0.0
         self.timer = 0.0
 
-        # 더 이상 공격 중 아님
         self.tamama.is_attacking = False
         self.tamama.attack_hit_done = False
+        self.tamama.is_guarding = False
 
-        # 어택 방향 기준 넉백 방향
         self.knock_dir = self.tamama.hit_from_dir if hasattr(self.tamama, 'hit_from_dir') else 0
 
     def exit(self, e):
@@ -807,12 +787,10 @@ class Hit:
         self.timer += game_framework.frame_time
         self.frame = (self.frame + self.anim_speed) % self.frame_count
 
-        # 넉백
         self.tamama.x += self.knock_dir * self.knockback_speed
         self.tamama.x = max(50, min(1550, self.tamama.x))
 
         if self.timer >= self.duration:
-            # Hit 끝
             self.tamama.state_machine.handle_state_event(('HIT_END', None))
 
     def draw(self):
@@ -846,11 +824,12 @@ class Tamama:
         self.image_name = 'Tamama_Sheet.png'
         self.image = None
 
-        # HP, 공격 관련 플래그
+        # HP / 공격 / 가드 관련
         self.hp = 100
         self.is_attacking = False
         self.attack_hit_done = False
         self.hit_from_dir = 0
+        self.is_guarding = False
 
         # 상태 인스턴스
         self.IDLE    = Idle(self)
@@ -898,19 +877,19 @@ class Tamama:
 
                 self.ATTACK: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
+                    attack_done_run:  self.IDLE,
                     got_hit:          self.HIT,
                 },
 
                 self.ATTACK2: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
+                    attack_done_run:  self.IDLE,
                     got_hit:          self.HIT,
                 },
 
                 self.GUARD: {
                     a_up:   self.IDLE,
-                    got_hit: self.HIT,
+                    # got_hit: self.HIT  # 가드 중엔 데미지/넉백 없음 -> Hit로 안 보냄
                 },
 
                 self.JUMP: {
@@ -941,7 +920,7 @@ class Tamama:
 
                 self.HIT: {
                     hit_end: self.IDLE,
-                    got_hit: self.HIT,  # 연속으로 맞으면 다시 Hit 초기화
+                    got_hit: self.HIT,
                 },
             }
         )
@@ -950,12 +929,9 @@ class Tamama:
         if self.image is None:
             self.image = load_image(self.image_name)
 
-    # --------- 충돌용 박스들 ---------
+    # --------- 충돌 박스들 ---------
     def get_hurtbox(self):
-        """
-        피격 박스 (몸통)
-        대략 캐릭터 중심 기준 박스. 필요하면 수치 조절 가능.
-        """
+        """몸통 피격 박스"""
         w = 40
         h = 80
         left   = self.x - w / 2
@@ -965,14 +941,10 @@ class Tamama:
         return (left, bottom, right, top)
 
     def get_attack_hitbox(self):
-        """
-        공격 판정 박스.
-        is_attacking 이고 아직 hit_done 이 아니면 유효.
-        """
+        """공격 판정 박스 (is_attacking & hit_done==False 일 때만 유효)"""
         if not self.is_attacking or self.attack_hit_done:
             return None
 
-        # 기본은 몸 앞쪽으로 뻗는 직사각형
         range_x = 70
         w = 40
         h = 80
@@ -989,21 +961,20 @@ class Tamama:
         return (left, bottom, right, top)
 
     def take_hit(self, damage, attacker_dir):
-        """
-        피격 처리 (play_mode.handle_attack_collisions 에서 호출)
-        """
+        """피격 처리 (play_mode에서 호출)"""
+        # ✅ 가드 중이면 데미지도, 넉백도 없음
+        if self.is_guarding:
+            return
+
         self.hp -= damage
         if self.hp < 0:
             self.hp = 0
 
-        # 어느 방향에서 맞았는지 (넉백 방향)
         self.hit_from_dir = attacker_dir if attacker_dir is not None else 0
 
-        # 공격 중지
         self.is_attacking = False
         self.attack_hit_done = False
 
-        # Hit 상태로 전환
         self.state_machine.handle_state_event(('GOT_HIT', None))
 
     # -----------------------------
