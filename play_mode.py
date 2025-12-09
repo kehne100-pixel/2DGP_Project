@@ -12,6 +12,7 @@ from Kururu import Kururu
 
 from fighter_ai import FighterAI
 import camera
+import ui
 from battle_ui import BattleUI   # ← UI 모듈
 
 W, H = 1600, 900
@@ -151,6 +152,9 @@ def clamp_fighters():
 # ────────────────────────────
 # 공격 판정용 유틸
 # ────────────────────────────
+# ────────────────────────────
+# 공격 타입 판별 & 기본 박스
+# ────────────────────────────
 def get_attack_type(f):
     """현재 상태가 어떤 공격인지 문자열로 반환 (공격 아니면 None)."""
     s = f.state_machine.cur_state
@@ -169,7 +173,7 @@ def get_attack_type(f):
 
 
 def get_body_aabb(f):
-    """대략적인 몸통 히트박스 (중심 기준 직사각형)."""
+    """대략적인 몸통 히트박스 (중심 기준 직사각형, 캐릭터에 get_hurtbox 없을 때 사용)."""
     half_w = 30
     half_h = 45
     return (
@@ -190,6 +194,9 @@ def aabb_overlap(a, b):
     return True
 
 
+# ────────────────────────────
+# 공격 판정
+# ────────────────────────────
 def handle_attack_collisions():
     """양쪽 공격 판정 실행."""
     if not player or not enemy:
@@ -201,58 +208,73 @@ def handle_attack_collisions():
 
 def handle_one_side_attack(attacker, defender):
     """attacker가 공격 중일 때 defender에게 맞는지 판정."""
+    # 1) 현재 공격 상태인지 확인
     attack_type = get_attack_type(attacker)
-
-    # 공격 상태가 아니면 플래그만 리셋
     if attack_type is None:
-        attacker.has_hit = False
+        # 공격 상태가 아니면 이번 동작에 대한 히트 플래그 리셋은
+        # 각 캐릭터가 알아서 하고 있으므로 여기서는 그냥 리턴
         return
 
-    # 이미 이번 공격 동작에서 한 번 맞췄으면 더 이상 판정 X
-    if getattr(attacker, 'has_hit', False):
+    # 2) 공격 판정 박스 얻기 (캐릭터에 get_attack_hitbox 있으면 그걸 사용)
+    if hasattr(attacker, 'get_attack_hitbox'):
+        atk_box = attacker.get_attack_hitbox()
+        if atk_box is None:
+            return
+    else:
+        atk_box = get_body_aabb(attacker)
+
+    # 3) 피격 박스 (get_hurtbox 있으면 그걸 사용)
+    if hasattr(defender, 'get_hurtbox'):
+        def_box = defender.get_hurtbox()
+    else:
+        def_box = get_body_aabb(defender)
+
+    # 실제로 겹치는지 확인
+    if not aabb_overlap(atk_box, def_box):
         return
 
-    # 히트박스 체크
-    if not aabb_overlap(get_body_aabb(attacker), get_body_aabb(defender)):
-        return
-
-    # 상대가 가드 중이면 데미지도, 넉백도 없음
-    if getattr(defender, 'is_guarding', False):
-        attacker.has_hit = True  # 같은 공격에서 계속 튕기는 거 방지
-        return
-
-    # 필요한 게이지 확인 (스킬만)
+    # 4) 게이지/데미지 계산을 위한 정보
+    damage = DAMAGE_TABLE.get(attack_type, 0)
     need_sp = SP_COST.get(attack_type, 0)
     cur_sp = getattr(attacker, 'sp', 0)
 
+    # 스킬 게이지 부족하면 타격 자체가 안 들어가도록 처리
     if need_sp > 0 and cur_sp < need_sp:
-        # 게이지 부족 → 스킬은 나가지만 데미지/게이지 변화 없음
-        attacker.has_hit = True
+        # 스킬 모션은 나가지만 실제 데미지는 없음
+        # (원하면 여기서 그냥 return 해버리면 됨)
         return
 
-    # 실제 데미지 계산
-    damage = DAMAGE_TABLE.get(attack_type, 0)
+    # 5) 실제 피격 처리 (각 캐릭터의 take_hit 사용)
+    before_hp = getattr(defender, 'hp', MAX_HP)
 
-    defender.hp = max(0, getattr(defender, 'hp', MAX_HP) - damage)
+    # 공격 방향 (+1: 오른쪽에서 왼쪽을 때림 / -1: 왼쪽에서 오른쪽을 때림)
+    dir_to_def = 1 if attacker.x < defender.x else -1
 
-    # 필살 게이지 증감
-    if attack_type in ('attack', 'attack2'):
-        # 일반 공격 히트 시 +10
-        attacker.sp = min(attacker.max_sp,
-                          getattr(attacker, 'sp', 0) + SP_GAIN_ON_ATTACK_HIT)
+    if hasattr(defender, 'take_hit'):
+        hit_success = defender.take_hit(damage, dir_to_def)
+        # take_hit이 True/False를 반환하지 않는 캐릭터 대비
+        if hit_success is None:
+            after_hp = getattr(defender, 'hp', MAX_HP)
+            hit_success = (after_hp < before_hp)
     else:
-        # 스킬은 사용에 따른 게이지 소모
-        if need_sp > 0:
-            attacker.sp = max(0, cur_sp - need_sp)
+        # 기본 처리(안전장치)
+        defender.hp = max(0, before_hp - damage)
+        hit_success = (defender.hp < before_hp)
 
-    # 넉백 (가드가 아닐 때만)
-    KNOCKBACK = 15 if attack_type in ('attack', 'attack2') else 25
-    if attacker.x < defender.x:
-        defender.x += KNOCKBACK
-    else:
-        defender.x -= KNOCKBACK
+    # 6) 공격자 게이지 처리
+    if hit_success:
+        if attack_type in ('attack', 'attack2'):
+            # 일반 공격 히트 시 +10
+            attacker.sp = min(attacker.max_sp, cur_sp + SP_GAIN_ON_ATTACK_HIT)
+        else:
+            # 스킬 히트 시 게이지 소모
+            if need_sp > 0:
+                attacker.sp = max(0, cur_sp - need_sp)
 
-    attacker.has_hit = True
+        # 한 번 맞췄으면 이번 공격 동작에서는 더 이상 맞지 않도록
+        if hasattr(attacker, 'attack_hit_done'):
+            attacker.attack_hit_done = True
+
 
 
 # ────────────────────────────
