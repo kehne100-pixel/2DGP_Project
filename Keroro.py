@@ -587,6 +587,10 @@ class Skill:
         self.hold_timer = 0.0
 
     def enter(self, e):
+        self.tamama.sp -= self.tamama.skill1_cost
+        if self.tamama.sp < 0:
+            self.tamama.sp = 0
+
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
@@ -647,6 +651,10 @@ class Skill2:
         self.hold_timer = 0.0
 
     def enter(self, e):
+        self.tamama.sp -= self.tamama.skill2_cost
+        if self.tamama.sp < 0:
+            self.tamama.sp = 0
+
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
@@ -709,6 +717,10 @@ class Skill3:
         self.start_timer = 0.0
 
     def enter(self, e):
+        self.tamama.sp -= self.tamama.skill3_cost
+        if self.tamama.sp < 0:
+            self.tamama.sp = 0
+
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
