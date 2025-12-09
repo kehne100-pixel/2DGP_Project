@@ -39,7 +39,7 @@ ui_timer_bg = None   # 타이머 박스
 
 digit_images = {}    # '0'~'9', ':' 이미지
 
-ROUND_TIME = 60.0       # 60초
+ROUND_TIME = 120.0       # 60초
 round_start_time = 0.0  # 시작 시각(초)
 
 # ====== UI 위치/크기 조절용 상수 (여기만 바꾸면 됨) ======
@@ -55,6 +55,15 @@ TIMER_Y = H - 120       # 타이머 중심 Y
 TIMER_DIGIT_W = 34      # 타이머 숫자 폭
 TIMER_DIGIT_H = 52      # 타이머 숫자 높이
 TIMER_DIGIT_GAP = 4     # 숫자 사이 간격
+
+HP_FRAME_Y      = H - 130   # 화면 위에서 얼마나 내릴지 (크면 더 아래로 내려감)
+HP_FRAME_W      = 420       # 프레임 가로 길이
+HP_FRAME_H      = 70        # 프레임 세로 길이
+HP_BAR_W_MAX    = 360       # 빨간 HP바 최대 길이
+SP_BAR_W_MAX    = 360       # 파란 SP바 최대 길이
+HP_SP_BAR_H     = 18        # HP/SP 바의 높이
+HP_BAR_OFFSET_Y = 10        # 프레임 중심에서 HP바까지의 Y 오프셋
+SP_BAR_OFFSET_Y = -12       # 프레임 중심에서 SP바까지의 Y 오프셋
 
 
 def set_selected_index(index):
@@ -339,6 +348,16 @@ def update():
 
 
 # -------------------------------------------------
+# HP / SP UI 상수 (타이머는 건드리지 않음)
+# -------------------------------------------------
+HP_FRAME_SCALE   = 0.30   # 프레임 이미지 축소 비율 (0.25~0.35 사이에서 취향대로)
+HP_FROM_TOP      = 150    # 화면 위에서 얼마나 떨어뜨릴지 (값을 키우면 더 아래로 내려감)
+
+HP_LEFT_X        = 260    # 왼쪽 HP바 중심 x
+HP_RIGHT_X       = W - 260  # 오른쪽 HP바 중심 x
+
+
+# -------------------------------------------------
 # UI 그리기 (HP/SP)
 # -------------------------------------------------
 def draw_hp_sp_bar(fighter, side):
@@ -352,96 +371,74 @@ def draw_hp_sp_bar(fighter, side):
     max_sp = getattr(fighter, 'max_sp', 100)
     sp     = getattr(fighter, 'sp', 0)
 
-    # 0.0 ~ 1.0 비율
     hp_ratio = 0.0 if max_hp <= 0 else max(0.0, min(1.0, hp / max_hp))
     sp_ratio = 0.0 if max_sp <= 0 else max(0.0, min(1.0, sp / max_sp))
 
-    # ==========================
-    # 위치 / 크기 설정 부분
-    # ==========================
-    frame_y  = H - 120   # 너무 위에 붙어 있으면 잘려보이니 살짝 더 내려줌
-    frame_w  = 420       # HP 프레임 전체 가로
-    frame_h  = 60        # HP 프레임 전체 세로 (회색 둥근 바 높이 느낌)
+    # ----- 프레임(검은 바) 크기 계산 -----
+    if not ui_hp_frame:
+        return
 
-    # HP / SP 바의 최대 너비와 높이
-    bar_w_max = 340      # 실제 HP/SP가 차는 최대 길이
-    hp_h      = 26       # HP 붉은 바 두께
-    sp_h      = 18       # SP 파란 바 두께
+    src_fw, src_fh = ui_hp_frame.w, ui_hp_frame.h
+    frame_w = int(src_fw * HP_FRAME_SCALE)
+    frame_h = int(src_fh * HP_FRAME_SCALE)
 
-    # 프레임 중심을 기준으로 위/아래에 배치
-    hp_y = frame_y + 6   # 프레임 중앙보다 살짝 위쪽
-    sp_y = frame_y - 10  # 프레임 중앙보다 살짝 아래쪽
+    # 화면에서의 위치
+    frame_y = H - HP_FROM_TOP
+    frame_x = HP_LEFT_X if side == 'left' else HP_RIGHT_X
 
+    # ----- 프레임 그리기 -----
     if side == 'left':
-        frame_x = 260          # 왼쪽 HP UI 중심 x (필요하면 숫자 조금씩 조정)
+        # 좌측은 그대로
+        ui_hp_frame.draw(frame_x, frame_y, frame_w, frame_h)
+    else:
+        # 우측은 좌우 반전
+        ui_hp_frame.composite_draw(0, 'h', frame_x, frame_y, frame_w, frame_h)
 
-        # --- 프레임(검정/회색 바) ---
-        if ui_hp_frame:
-            ui_hp_frame.clip_draw(
-                ui_hp_frame.w // 2, ui_hp_frame.h // 2,
-                ui_hp_frame.w, ui_hp_frame.h,
-                frame_x, frame_y,
-                frame_w, frame_h
-            )
+    # ----- 내부 HP / SP 바 크기 계산 -----
+    # 프레임 안쪽에 들어가도록 폭/높이 비율 조정
+    bar_max_w = int(frame_w * 0.82)     # 프레임보다 조금 작게
+    bar_h     = int(frame_h * 0.28)     # 프레임 높이의 약 1/3 정도
 
-        # --- HP 붉은 바 (처음엔 가득 / 깎이면 양 끝이 남고 검정이 보임) ---
-        if ui_hp_fill and hp_ratio > 0.0:
-            w  = int(bar_w_max * hp_ratio)
-            cx = frame_x - bar_w_max / 2 + w / 2
-            ui_hp_fill.clip_draw(
-                ui_hp_fill.w // 2, ui_hp_fill.h // 2,
-                ui_hp_fill.w, ui_hp_fill.h,
-                int(cx), hp_y,
-                w, hp_h
-            )
+    # HP 바는 위쪽, SP 바는 아래쪽
+    hp_y = frame_y + bar_h * 0.35
+    sp_y = frame_y - bar_h * 0.35
 
-        # --- SP 파란 바 (처음엔 0 → 공격 성공할수록 채워짐) ---
-        if ui_sp_fill and sp_ratio > 0.0:
-            w  = int(bar_w_max * sp_ratio)
-            cx = frame_x - bar_w_max / 2 + w / 2
-            ui_sp_fill.clip_draw(
-                ui_sp_fill.w // 2, ui_sp_fill.h // 2,
-                ui_sp_fill.w, ui_sp_fill.h,
-                int(cx), sp_y,
-                w, sp_h
-            )
+    # ---------------- HP (빨간바) ----------------
+    if ui_hp_fill and hp_ratio > 0.0:
+        w = int(bar_max_w * hp_ratio)
 
-    else:  # right side (적 HP)
-        frame_x = W - 260       # 오른쪽 HP UI 중심 x
-
-        # --- 프레임 (좌우 반전) ---
-        if ui_hp_frame:
-            ui_hp_frame.clip_composite_draw(
-                ui_hp_frame.w // 2, ui_hp_frame.h // 2,
-                ui_hp_frame.w, ui_hp_frame.h,
+        if side == 'left':
+            # 왼쪽 HP: 왼쪽에서 오른쪽으로 줄어들게
+            cx = frame_x - bar_max_w / 2 + w / 2
+            ui_hp_fill.draw(int(cx), int(hp_y), w, bar_h)
+        else:
+            # 오른쪽 HP: 오른쪽에서 왼쪽으로 줄어들게 (좌우 반전)
+            cx = frame_x + bar_max_w / 2 - w / 2
+            ui_hp_fill.composite_draw(
                 0, 'h',
-                frame_x, frame_y,
-                frame_w, frame_h
+                int(cx), int(hp_y),
+                w, bar_h
             )
 
-        # --- HP 붉은 바 (오른쪽에서 왼쪽으로 줄어들도록 반전) ---
-        if ui_hp_fill and hp_ratio > 0.0:
-            w  = int(bar_w_max * hp_ratio)
-            cx = frame_x + bar_w_max / 2 - w / 2
-            ui_hp_fill.clip_composite_draw(
-                ui_hp_fill.w // 2, ui_hp_fill.h // 2,
-                ui_hp_fill.w, ui_hp_fill.h,
+    # ---------------- SP (파란바) ----------------
+    if ui_sp_fill and sp_ratio > 0.0:
+        w = int(bar_max_w * sp_ratio)
+
+        if side == 'left':
+            # 왼쪽 SP: 왼쪽에서 오른쪽으로 차오르게
+            cx = frame_x - bar_max_w / 2 + w / 2
+            ui_sp_fill.draw(int(cx), int(sp_y), w, bar_h)
+        else:
+            # 오른쪽 SP: 오른쪽에서 왼쪽으로 차오르게
+            cx = frame_x + bar_max_w / 2 - w / 2
+            ui_sp_fill.composite_draw(
                 0, 'h',
-                int(cx), hp_y,
-                w, hp_h
+                int(cx), int(sp_y),
+                w, bar_h
             )
 
-        # --- SP 파란 바 ---
-        if ui_sp_fill and sp_ratio > 0.0:
-            w  = int(bar_w_max * sp_ratio)
-            cx = frame_x + bar_w_max / 2 - w / 2
-            ui_sp_fill.clip_composite_draw(
-                ui_sp_fill.w // 2, ui_sp_fill.h // 2,
-                ui_sp_fill.w, ui_sp_fill.h,
-                0, 'h',
-                int(cx), sp_y,
-                w, sp_h
-            )
+
+
 
 
 
