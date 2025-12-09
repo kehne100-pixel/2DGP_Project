@@ -824,12 +824,12 @@ class Tamama:
         self.image_name = 'Tamama_Sheet.png'
         self.image = None
 
-        # HP / 공격 / 가드 관련
-        self.hp = 100
-        self.is_attacking = False
-        self.attack_hit_done = False
-        self.hit_from_dir = 0
+        self.max_hp = 100
+        self.hp = self.max_hp
+        self.max_sp = 100
+        self.sp = 0
         self.is_guarding = False
+        self.has_hit = False
 
         # 상태 인스턴스
         self.IDLE    = Idle(self)
