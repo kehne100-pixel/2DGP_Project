@@ -11,9 +11,7 @@ from Giroro import Giroro
 from Kururu import Kururu
 
 from fighter_ai import FighterAI
-import camera
-import ui
-from battle_ui import BattleUI   # ← UI 모듈
+import ui  # HP/게이지/타이머 UI
 
 W, H = 1600, 900
 
@@ -21,48 +19,21 @@ background = None
 player = None
 enemy = None
 ai = None
-ui = None
 
 selected_character = 0
 CHARACTERS = ['Dororo', 'Tamama', 'Keroro', 'Giroro', 'Kururu']
 
-# ────────────────────────────
-# 전투 수치 설정
-# ────────────────────────────
-MAX_HP = 100
-MAX_SP = 100
-
-# 데미지
-DAMAGE_TABLE = {
-    'attack': 5,      # s 키 기본 공격
-    'attack2': 5,     # d 키 공격(지정 없어서 5로 통일)
-    'skill1': 20,     # 1번 스킬
-    'skill2': 35,     # 2번 스킬
-    'skill3': 50,     # 3번 스킬
-}
-
-# 스킬 사용 시 필요한 게이지
-SP_COST = {
-    'attack': 0,
-    'attack2': 0,
-    'skill1': 30,
-    'skill2': 50,
-    'skill3': 100,
-}
-
-# 일반 공격이 히트했을 때 게이지 증가량
-SP_GAIN_ON_ATTACK_HIT = 10
+round_time = 60.0     # 60초 라운드 타이머
 
 
-def set_selected_index(index):
+def set_selected_index(index: int):
+    """select_mode에서 호출해서 1P 캐릭터 선택"""
     global selected_character
     selected_character = index
 
 
-# ────────────────────────────
-# 캐릭터 생성
-# ────────────────────────────
-def create_fighter(name, is_left=True):
+# ----------------- 캐릭터 생성 -----------------
+def create_fighter(name: str, is_left: bool = True):
     if name == 'Keroro':
         c = Keroro()
     elif name == 'Dororo':
@@ -77,9 +48,10 @@ def create_fighter(name, is_left=True):
         print(f"[WARN] Unknown fighter name: {name}, use Keroro")
         c = Keroro()
 
-    c.y = c.ground_y
+    # 바닥 y는 각 캐릭터 클래스의 ground_y 사용
+    c.y = getattr(c, 'ground_y', 90)
 
-    # 양쪽 끝에서 시작 (화면 안에는 들어오도록 약간 여유)
+    # 양 끝에서 출발 (화면 안쪽으로만)
     MARGIN_X = 200
     if is_left:
         c.x = MARGIN_X
@@ -89,40 +61,18 @@ def create_fighter(name, is_left=True):
         c.face_dir = -1
 
     c.dir = 0
-
-    # 스탯 기본값 세팅
-    setup_stats(c)
-
     return c
 
 
-def setup_stats(f):
-    """캐릭터 HP/게이지/가드 플래그 초기화"""
-    f.max_hp = MAX_HP
-    f.hp = MAX_HP
-    f.max_sp = MAX_SP
-    if not hasattr(f, 'sp'):
-        f.sp = 0
-    else:
-        f.sp = max(0, min(f.sp, MAX_SP))
-
-    if not hasattr(f, 'is_guarding'):
-        f.is_guarding = False
-
-    # 한 번 공격 동작당 한 번만 맞도록
-    f.has_hit = False
-
-
-# ────────────────────────────
-# 몸통 충돌 (둘이 겹쳐지지 않게만)
-# ────────────────────────────
+# ------------- 몸통 충돌 (서로 통과 X, 적은 안 밀리고 플레이어만 밀리게) -------------
 def resolve_body_collision():
     global player, enemy
     if not player or not enemy:
         return
 
+    # 대략적인 반경
     body_half = 35
-    min_distance = body_half * 2
+    min_distance = body_half * 2  # 70
 
     dx = enemy.x - player.x
     if dx == 0:
@@ -130,18 +80,19 @@ def resolve_body_collision():
 
     distance = abs(dx)
     if distance < min_distance:
+        # 적은 고정, 플레이어만 적에게 겹치지 않게 이동
         if dx > 0:
+            # enemy가 오른쪽에 있음 -> player를 왼쪽으로
             player.x = enemy.x - min_distance
         else:
+            # enemy가 왼쪽에 있음 -> player를 오른쪽으로
             player.x = enemy.x + min_distance
 
 
-# ────────────────────────────
-# 스테이지 밖으로 못 나가게
-# ────────────────────────────
+# ------------- 스테이지 밖으로 못 나가게 클램프 -------------
 def clamp_fighters():
-    STAGE_LEFT = 0
-    STAGE_RIGHT = W
+    STAGE_LEFT = 60
+    STAGE_RIGHT = W - 60
 
     if player:
         player.x = max(STAGE_LEFT, min(STAGE_RIGHT, player.x))
@@ -149,179 +100,121 @@ def clamp_fighters():
         enemy.x = max(STAGE_LEFT, min(STAGE_RIGHT, enemy.x))
 
 
-# ────────────────────────────
-# 공격 판정용 유틸
-# ────────────────────────────
-# ────────────────────────────
-# 공격 타입 판별 & 기본 박스
-# ────────────────────────────
-def get_attack_type(f):
-    """현재 상태가 어떤 공격인지 문자열로 반환 (공격 아니면 None)."""
-    s = f.state_machine.cur_state
+# ------------- 사각형 충돌 체크 -------------
+def rects_overlap(a, b):
+    """
+    a, b : (left, bottom, right, top)
+    """
+    left1, bottom1, right1, top1 = a
+    left2, bottom2, right2, top2 = b
 
-    if hasattr(f, 'ATTACK') and s is f.ATTACK:
-        return 'attack'
-    if hasattr(f, 'ATTACK2') and s is f.ATTACK2:
-        return 'attack2'
-    if hasattr(f, 'SKILL') and s is f.SKILL:
-        return 'skill1'
-    if hasattr(f, 'SKILL2') and s is f.SKILL2:
-        return 'skill2'
-    if hasattr(f, 'SKILL3') and s is f.SKILL3:
-        return 'skill3'
-    return None
-
-
-def get_body_aabb(f):
-    """대략적인 몸통 히트박스 (중심 기준 직사각형, 캐릭터에 get_hurtbox 없을 때 사용)."""
-    half_w = 30
-    half_h = 45
-    return (
-        f.x - half_w,
-        f.y - half_h,
-        f.x + half_w,
-        f.y + half_h
-    )
-
-
-def aabb_overlap(a, b):
-    ax1, ay1, ax2, ay2 = a
-    bx1, by1, bx2, by2 = b
-    if ax2 < bx1 or bx2 < ax1:
+    if right1 < left2:
         return False
-    if ay2 < by1 or by2 < ay1:
+    if right2 < left1:
+        return False
+    if top1 < bottom2:
+        return False
+    if top2 < bottom1:
         return False
     return True
 
 
-# ────────────────────────────
-# 공격 판정
-# ────────────────────────────
-def handle_attack_collisions():
-    """양쪽 공격 판정 실행."""
-    if not player or not enemy:
+# ------------- 공격 판정 처리 -------------
+def handle_attack(attacker, defender):
+    """
+    attacker.get_attack_hitbox(), defender.get_hurtbox(), defender.take_hit() 이 있다고 가정
+    Tamama, Dororo, Keroro, Giroro, Kururu 모두 동일한 구조여야 함
+    """
+    # 공격 박스 함수가 없으면 패스
+    if not hasattr(attacker, 'get_attack_hitbox'):
+        return
+    if not hasattr(defender, 'get_hurtbox'):
+        return
+    if not hasattr(defender, 'take_hit'):
         return
 
-    handle_one_side_attack(player, enemy)
-    handle_one_side_attack(enemy, player)
-
-
-def handle_one_side_attack(attacker, defender):
-    """attacker가 공격 중일 때 defender에게 맞는지 판정."""
-    # 1) 현재 공격 상태인지 확인
-    attack_type = get_attack_type(attacker)
-    if attack_type is None:
-        # 공격 상태가 아니면 이번 동작에 대한 히트 플래그 리셋은
-        # 각 캐릭터가 알아서 하고 있으므로 여기서는 그냥 리턴
+    hitbox = attacker.get_attack_hitbox()
+    if hitbox is None:
         return
 
-    # 2) 공격 판정 박스 얻기 (캐릭터에 get_attack_hitbox 있으면 그걸 사용)
-    if hasattr(attacker, 'get_attack_hitbox'):
-        atk_box = attacker.get_attack_hitbox()
-        if atk_box is None:
+    hurtbox = defender.get_hurtbox()
+    if hurtbox is None:
+        return
+
+    if not rects_overlap(hitbox, hurtbox):
+        return
+
+    # 일단 충돌 발생 -> 한 번만 맞게 처리
+    # (각 캐릭터 클래스에서 is_attacking, attack_hit_done 플래그를 쓰고 있음)
+    if hasattr(attacker, 'attack_hit_done'):
+        if attacker.attack_hit_done:
             return
+        attacker.attack_hit_done = True
+
+    # 데미지 & SP 증가 (기본값: 일반 공격 5데미지, SP +10)
+    # 스킬별 데미지까지 분리하려면 캐릭터 쪽에 current_attack_type 등을 추가하면 됨.
+    damage = 5
+
+    # 공격 방향 (defender에게서 보면 +1이면 오른쪽으로 넉백, -1이면 왼쪽으로 넉백)
+    if attacker.x < defender.x:
+        hit_from_dir = 1
     else:
-        atk_box = get_body_aabb(attacker)
+        hit_from_dir = -1
 
-    # 3) 피격 박스 (get_hurtbox 있으면 그걸 사용)
-    if hasattr(defender, 'get_hurtbox'):
-        def_box = defender.get_hurtbox()
-    else:
-        def_box = get_body_aabb(defender)
+    defender.take_hit(damage, hit_from_dir)
 
-    # 실제로 겹치는지 확인
-    if not aabb_overlap(atk_box, def_box):
-        return
-
-    # 4) 게이지/데미지 계산을 위한 정보
-    damage = DAMAGE_TABLE.get(attack_type, 0)
-    need_sp = SP_COST.get(attack_type, 0)
-    cur_sp = getattr(attacker, 'sp', 0)
-
-    # 스킬 게이지 부족하면 타격 자체가 안 들어가도록 처리
-    if need_sp > 0 and cur_sp < need_sp:
-        # 스킬 모션은 나가지만 실제 데미지는 없음
-        # (원하면 여기서 그냥 return 해버리면 됨)
-        return
-
-    # 5) 실제 피격 처리 (각 캐릭터의 take_hit 사용)
-    before_hp = getattr(defender, 'hp', MAX_HP)
-
-    # 공격 방향 (+1: 오른쪽에서 왼쪽을 때림 / -1: 왼쪽에서 오른쪽을 때림)
-    dir_to_def = 1 if attacker.x < defender.x else -1
-
-    if hasattr(defender, 'take_hit'):
-        hit_success = defender.take_hit(damage, dir_to_def)
-        # take_hit이 True/False를 반환하지 않는 캐릭터 대비
-        if hit_success is None:
-            after_hp = getattr(defender, 'hp', MAX_HP)
-            hit_success = (after_hp < before_hp)
-    else:
-        # 기본 처리(안전장치)
-        defender.hp = max(0, before_hp - damage)
-        hit_success = (defender.hp < before_hp)
-
-    # 6) 공격자 게이지 처리
-    if hit_success:
-        if attack_type in ('attack', 'attack2'):
-            # 일반 공격 히트 시 +10
-            attacker.sp = min(attacker.max_sp, cur_sp + SP_GAIN_ON_ATTACK_HIT)
-        else:
-            # 스킬 히트 시 게이지 소모
-            if need_sp > 0:
-                attacker.sp = max(0, cur_sp - need_sp)
-
-        # 한 번 맞췄으면 이번 공격 동작에서는 더 이상 맞지 않도록
-        if hasattr(attacker, 'attack_hit_done'):
-            attacker.attack_hit_done = True
+    # 공격 성공 시 SP 10 증가
+    if hasattr(attacker, 'sp') and hasattr(attacker, 'max_sp'):
+        attacker.sp += 10
+        if attacker.sp > attacker.max_sp:
+            attacker.sp = attacker.max_sp
 
 
-
-# ────────────────────────────
-# 초기화
-# ────────────────────────────
+# ------------- 초기화 -------------
 def init():
-    global background, player, enemy, ai, ui
+    global background, player, enemy, ai, round_time
 
     try:
         background = load_image('Keroro_background.png')
         print("✅ Keroro_background.png 로드 완료")
     except:
-        print("⚠️ Keroro_background.png 를 찾지 못했습니다.")
         background = None
+        print("⚠️ Keroro_background.png 를 찾지 못했습니다. 단색 배경 사용")
 
+    # 1P 플레이어
     player_name = CHARACTERS[selected_character]
     player = create_fighter(player_name, is_left=True)
     print(f"✅ Player1 : {player_name}")
 
-    enemy_candidates = [n for n in CHARACTERS if n != player_name]
+    # 2P 적 (플레이어와 다른 캐릭터 중 랜덤)
+    enemy_candidates = [name for name in CHARACTERS if name != player_name]
     enemy_name = random.choice(enemy_candidates)
     enemy = create_fighter(enemy_name, is_left=False)
     print(f"✅ Enemy (AI) : {enemy_name}")
 
+    # 적 AI (enemy가 움직이고 player를 목표로)
     ai = FighterAI(enemy, player)
 
-    camera.init()
-    print("✅ Camera init 완료")
+    # 라운드 타이머
+    round_time = 60.0
 
-    ui = BattleUI()
-    print("✅ BattleUI 생성 완료")
+    # UI 초기화
+    ui.init()
+    print("✅ UI init 완료")
 
 
 def finish():
-    global background, player, enemy, ai, ui
+    global background, player, enemy, ai
     background = None
     player = None
     enemy = None
     ai = None
-    ui = None
+    ui.finish()
 
 
-# ────────────────────────────
-# 매 프레임 업데이트
-# ────────────────────────────
+# ------------- 매 프레임 업데이트 -------------
 def update():
-    global player, enemy, ai, background, ui
+    global player, enemy, ai, background, round_time
 
     if player:
         player.update()
@@ -330,70 +223,49 @@ def update():
     if ai:
         ai.update()
 
+    # 스테이지 경계
     clamp_fighters()
+
+    # 몸통 충돌 (서로 통과 X)
     resolve_body_collision()
 
-    # 공격 판정
-    handle_attack_collisions()
+    # 공격 판정 (양쪽 다 공격할 수 있으므로 둘 다 체크)
+    if player and enemy:
+        handle_attack(player, enemy)
+        handle_attack(enemy, player)
 
-    camera.update(player, enemy, background)
+    # 라운드 타이머 감소
+    round_time -= game_framework.frame_time
+    if round_time < 0:
+        round_time = 0
+        # TODO: 시간 끝났을 때 승패 처리 넣고 싶으면 여기서 처리
 
-    if ui:
-        ui.update()
 
-
-# ────────────────────────────
-# 그리기
-# ────────────────────────────
+# ------------- 그리기 -------------
 def draw():
     clear_canvas()
 
-    zoom = camera.get_zoom()
-    cx, cy = camera.get_center()
-
+    # 배경
     if background:
-        src_w = int(W / zoom)
-        src_h = int(H / zoom)
-
-        bx = int(cx - src_w / 2)
-        by = int(cy - src_h / 2)
-
-        if bx < 0:
-            bx = 0
-        if by < 0:
-            by = 0
-        if bx + src_w > background.w:
-            bx = background.w - src_w
-        if by + src_h > background.h:
-            by = background.h - src_h
-
-        src_center_x = bx + src_w // 2
-        src_center_y = by + src_h // 2
-
-        background.clip_draw(
-            src_center_x, src_center_y,
-            src_w, src_h,
-            W // 2, H // 2,
-            W, H
-        )
+        background.draw(W // 2, H // 2, W, H)
     else:
-        set_clear_color(0.5, 0.5, 0.5, 1.0)
+        set_clear_color(0.3, 0.3, 0.3, 1.0)
         clear_canvas()
 
+    # 캐릭터
     if player:
         player.draw()
     if enemy:
         enemy.draw()
 
-    if ui:
-        ui.draw(player, enemy)
+    # HP / SP / Timer UI
+    if player and enemy:
+        ui.draw(player, enemy, round_time)
 
     update_canvas()
 
 
-# ────────────────────────────
-# 입력 처리
-# ────────────────────────────
+# ------------- 입력 처리 -------------
 def handle_events():
     global player
     events = get_events()
@@ -403,6 +275,7 @@ def handle_events():
         elif e.type == SDL_KEYDOWN and e.key == SDLK_ESCAPE:
             game_framework.quit()
 
+        # 플레이어 입력만 처리 (적은 AI)
         if player:
             player.handle_event(e)
 
