@@ -37,7 +37,8 @@ ui_hp_frame = None   # 검은 프레임
 ui_hp_fill = None    # 빨간 HP 바
 ui_sp_fill = None    # 파란 SP 바
 ui_timer_bg = None   # 타이머 박스
-ui_font = None       # 타이머 숫자 표시 폰트
+
+digit_images = {}    # '0'~'9', ':' 이미지
 
 ROUND_TIME = 60.0       # 60초
 round_start_time = 0.0  # 시작 시각(초)
@@ -83,7 +84,7 @@ def create_fighter(name, is_left=True):
 
 
 # -------------------------------------------------
-# 몸통 충돌 (서로 밀치기) - 필요하면 유지, 너무 답답하면 끄기
+# 몸통 충돌 (서로 살짝 밀치기)
 # -------------------------------------------------
 def resolve_body_collision():
     global player, enemy
@@ -99,7 +100,6 @@ def resolve_body_collision():
 
     distance = abs(dx)
     if distance < min_distance:
-        # 서로 반반 밀기
         overlap = min_distance - distance
         push = overlap / 2.0
         if dx > 0:
@@ -124,10 +124,7 @@ def clamp_fighters():
 
 
 # -------------------------------------------------
-# 싸울 때 공격 판정 / 피격 판정 (아주 기본)
-#   - 각 캐릭터 파일에
-#       get_hurtbox(), get_attack_hitbox(), take_hit()
-#     이 구현되어 있다는 전제
+# AABB 충돌 / 전투 판정
 # -------------------------------------------------
 def aabb_intersect(box1, box2):
     l1, b1, r1, t1 = box1
@@ -148,10 +145,7 @@ def handle_combat(attacker, defender):
     - attacker.get_attack_hitbox() 가 None 이 아니고
       defender.get_hurtbox() 와 겹치면
       defender.take_hit(damage, attacker.face_dir) 호출
-    - 데미지/게이지 수치는 일단 play_mode 에서 가장 단순하게 처리
-      (필요하면 나중에 강화)
     """
-    # 이런 함수가 없으면 아무 것도 안 함
     if not hasattr(attacker, 'get_attack_hitbox'):
         return
     if not hasattr(defender, 'get_hurtbox'):
@@ -167,11 +161,11 @@ def handle_combat(attacker, defender):
     if not aabb_intersect(hitbox, hurtbox):
         return
 
-    # 공격 1번에 한 번만 맞도록, 캐릭터 쪽에서 flag 사용
+    # 공격 1번에 한 번만 맞도록 (캐릭터 쪽 flag)
     if hasattr(attacker, 'attack_hit_done') and attacker.attack_hit_done:
         return
 
-    # --- 데미지/게이지 값 (원하면 여기 숫자만 바꾸면 됨) ---
+    # --- 데미지/게이지 값 ---
     DAMAGE_ATTACK = 5
     DAMAGE_SKILL1 = 20
     DAMAGE_SKILL2 = 35
@@ -181,10 +175,8 @@ def handle_combat(attacker, defender):
 
     damage = DAMAGE_ATTACK
 
-    # 어떤 상태인지에 따라 데미지 결정
     cur_state = getattr(attacker.state_machine, 'cur_state', None)
 
-    # 각 캐릭터 클래스에서 self.ATTACK, self.SKILL, ... 를 만들었다는 전제
     if cur_state is getattr(attacker, 'SKILL', None):
         damage = DAMAGE_SKILL1
     elif cur_state is getattr(attacker, 'SKILL2', None):
@@ -200,7 +192,6 @@ def handle_combat(attacker, defender):
         if attacker.sp > attacker.max_sp:
             attacker.sp = attacker.max_sp
 
-    # 한 번 맞췄다고 표시 (캐릭터 쪽에서 이 flag를 검사하고 있음)
     if hasattr(attacker, 'attack_hit_done'):
         attacker.attack_hit_done = True
 
@@ -223,8 +214,8 @@ def get_remaining_time():
 # -------------------------------------------------
 def init():
     global background, player, enemy, ai
-    global ui_hp_frame, ui_hp_fill, ui_sp_fill, ui_timer_bg, ui_font
-    global round_start_time
+    global ui_hp_frame, ui_hp_fill, ui_sp_fill, ui_timer_bg
+    global digit_images, round_start_time
 
     # 배경
     try:
@@ -251,7 +242,7 @@ def init():
     camera.init()
     print("✅ Camera init 완료")
 
-    # ----- UI 이미지/폰트 로드 -----
+    # ----- UI 이미지 로드 -----
     try:
         ui_hp_frame = load_image('ui_hp_frame.png')
     except:
@@ -276,11 +267,22 @@ def init():
         ui_timer_bg = None
         print("⚠️ ui_timer.png 로드 실패")
 
+    # 숫자 이미지(0~9, :)
+    digit_images = {}
+    for ch in '0123456789':
+        fname = f'num_{ch}.png'   # 예: num_0.png, num_1.png ...
+        try:
+            digit_images[ch] = load_image(fname)
+        except:
+            digit_images[ch] = None
+            print(f"⚠️ {fname} 로드 실패")
+
+    # 콜론 이미지 (없으면 None 으로 두고, 나중에 그냥 건너뜀)
     try:
-        ui_font = load_font('ENCR10B.TTF', 40)  # 다른 폰트를 쓰고 싶으면 파일명 변경
+        digit_images[':'] = load_image('num_colon.png')
     except:
-        ui_font = None
-        print("⚠️ ENCR10B.TTF 폰트 로드 실패 (숫자 출력 안 될 수 있음)")
+        digit_images[':'] = None
+        print("⚠️ num_colon.png 로드 실패")
 
     # 라운드 타이머 시작 시각
     round_start_time = get_time()
@@ -288,7 +290,7 @@ def init():
 
 def finish():
     global background, player, enemy, ai
-    global ui_hp_frame, ui_hp_fill, ui_sp_fill, ui_timer_bg, ui_font
+    global ui_hp_frame, ui_hp_fill, ui_sp_fill, ui_timer_bg, digit_images
     background = None
     player = None
     enemy = None
@@ -297,7 +299,7 @@ def finish():
     ui_hp_fill = None
     ui_sp_fill = None
     ui_timer_bg = None
-    ui_font = None
+    digit_images = {}
 
 
 # -------------------------------------------------
@@ -313,23 +315,18 @@ def update():
     if ai:
         ai.update()
 
-    # 스테이지 밖으로 나가지 않게
     clamp_fighters()
-
-    # 몸통 충돌
     resolve_body_collision()
 
-    # 공격 판정 / 데미지
     if player and enemy:
         handle_combat(player, enemy)
         handle_combat(enemy, player)
 
-    # 카메라
     camera.update(player, enemy, background)
 
 
 # -------------------------------------------------
-# UI 그리기
+# UI 그리기 (HP/SP)
 # -------------------------------------------------
 def draw_hp_sp_bar(fighter, side):
     """
@@ -341,7 +338,6 @@ def draw_hp_sp_bar(fighter, side):
     if fighter is None:
         return
 
-    # hp / sp 비율
     max_hp = getattr(fighter, 'max_hp', 100)
     hp = getattr(fighter, 'hp', max_hp)
     max_sp = getattr(fighter, 'max_sp', 100)
@@ -350,14 +346,15 @@ def draw_hp_sp_bar(fighter, side):
     hp_ratio = 0.0 if max_hp <= 0 else max(0.0, min(1.0, hp / max_hp))
     sp_ratio = 0.0 if max_sp <= 0 else max(0.0, min(1.0, sp / max_sp))
 
-    frame_y = H - 40
+    # 화면 맨 위에서 조금 내려오게 (기존보다 40px 정도 아래)
+    frame_y = H - 110
     frame_w = 420
-    frame_h = 60
+    frame_h = 55
 
     bar_w_max = 340
-    bar_h = 18
-    hp_y = frame_y + 6
-    sp_y = frame_y - 14
+    bar_h = 16
+    hp_y = frame_y + 8
+    sp_y = frame_y - 10
 
     if side == 'left':
         frame_x = 260
@@ -371,7 +368,7 @@ def draw_hp_sp_bar(fighter, side):
                 frame_w, frame_h
             )
 
-        # HP (왼쪽에서 오른쪽으로 차는 느낌)
+        # HP (왼->오)
         if ui_hp_fill and hp_ratio > 0.0:
             w = int(bar_w_max * hp_ratio)
             cx = frame_x - bar_w_max / 2 + w / 2
@@ -382,7 +379,7 @@ def draw_hp_sp_bar(fighter, side):
                 w, bar_h
             )
 
-        # SP (왼쪽에서 오른쪽으로 차는 느낌)
+        # SP (왼->오)
         if ui_sp_fill and sp_ratio > 0.0:
             w = int(bar_w_max * sp_ratio)
             cx = frame_x - bar_w_max / 2 + w / 2
@@ -406,7 +403,7 @@ def draw_hp_sp_bar(fighter, side):
                 frame_w, frame_h
             )
 
-        # HP (오른쪽에서 왼쪽으로 줄어드는 느낌)
+        # HP (오른쪽부터 줄어드는 느낌)
         if ui_hp_fill and hp_ratio > 0.0:
             w = int(bar_w_max * hp_ratio)
             cx = frame_x + bar_w_max / 2 - w / 2
@@ -431,17 +428,20 @@ def draw_hp_sp_bar(fighter, side):
             )
 
 
+# -------------------------------------------------
+# 타이머 UI (숫자 이미지는 digit_images 사용)
+# -------------------------------------------------
 def draw_timer_ui():
-    global ui_timer_bg, ui_font
+    global ui_timer_bg, digit_images
 
     if not ui_timer_bg:
         return
 
     cx = W // 2
-    cy = H - 70
+    cy = H - 120        # 기존보다 아래로 내림
 
     dest_w = 220
-    dest_h = 130
+    dest_h = 110
 
     # 타이머 배경
     ui_timer_bg.clip_draw(
@@ -451,15 +451,27 @@ def draw_timer_ui():
         dest_w, dest_h
     )
 
-    # 남은 시간 숫자
-    if ui_font:
-        remain = get_remaining_time()
-        mm = remain // 60
-        ss = remain % 60
-        text = f"{mm:02}:{ss:02}"
+    # 남은 시간 -> "MM:SS" 문자열
+    remain = get_remaining_time()
+    mm = remain // 60
+    ss = remain % 60
+    text = f"{mm:02}:{ss:02}"   # 예: "01:40"
 
-        # 폰트는 (왼쪽 아래 기준) 이라 약간 내려서 찍어 줌
-        ui_font.draw(cx - 40, cy - 20, text, (255, 255, 255))
+    # 숫자/콜론 이미지 크기 (적당히 조절)
+    digit_w = 28
+    digit_h = 40
+    gap = 2                       # 숫자 사이 간격
+
+    total_width = len(text) * (digit_w + gap) - gap
+    start_x = cx - total_width / 2
+    base_y = cy - 20              # 박스 안의 y 위치
+
+    for ch in text:
+        img = digit_images.get(ch, None)
+        if img:
+            img.draw(int(start_x + digit_w / 2), base_y, digit_w, digit_h)
+        # 이미지가 없어도 간격은 유지
+        start_x += (digit_w + gap)
 
 
 # -------------------------------------------------
@@ -471,7 +483,7 @@ def draw():
     zoom = camera.get_zoom()
     cx, cy = camera.get_center()
 
-    # ----- 배경 그리기 (카메라/줌 반영) -----
+    # ----- 배경 (카메라/줌 반영) -----
     if background:
         src_w = int(W / zoom)
         src_h = int(H / zoom)
@@ -501,13 +513,13 @@ def draw():
         set_clear_color(0.5, 0.5, 0.5, 1.0)
         clear_canvas()
 
-    # ----- 캐릭터 그리기 -----
+    # ----- 캐릭터 -----
     if player:
         player.draw()
     if enemy:
         enemy.draw()
 
-    # ----- UI 그리기 (HP/SP 바 & 타이머) -----
+    # ----- UI (HP/SP + 타이머) -----
     draw_hp_sp_bar(player, 'left')
     draw_hp_sp_bar(enemy, 'right')
     draw_timer_ui()
