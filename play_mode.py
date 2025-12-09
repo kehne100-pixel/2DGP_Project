@@ -42,6 +42,20 @@ digit_images = {}    # '0'~'9', ':' 이미지
 ROUND_TIME = 60.0       # 60초
 round_start_time = 0.0  # 시작 시각(초)
 
+# ====== UI 위치/크기 조절용 상수 (여기만 바꾸면 됨) ======
+UI_SCALE = 0.3          # HP/필살 프레임 전체 스케일
+UI_TOP_MARGIN = 140     # 화면 위에서 얼마만큼 내려올지 (숫자 커질수록 아래로)
+
+LEFT_HP_X = 260         # 왼쪽 HP 프레임 중심 X
+RIGHT_HP_X = W - 260    # 오른쪽 HP 프레임 중심 X
+
+TIMER_SCALE = 0.35      # 타이머 프레임 스케일
+TIMER_Y = H - 120       # 타이머 중심 Y
+
+TIMER_DIGIT_W = 34      # 타이머 숫자 폭
+TIMER_DIGIT_H = 52      # 타이머 숫자 높이
+TIMER_DIGIT_GAP = 4     # 숫자 사이 간격
+
 
 def set_selected_index(index):
     global selected_character
@@ -268,7 +282,7 @@ def init():
     # 숫자 이미지(0~9, :)
     digit_images = {}
     for ch in '0123456789':
-        # 👉 사용자가 만든 파일 이름에 맞춤: timer0.png ~ timer9.png
+        # timer0.png ~ timer9.png
         fname = f'timer{ch}.png'
         try:
             digit_images[ch] = load_image(fname)
@@ -276,7 +290,7 @@ def init():
             digit_images[ch] = None
             print(f"⚠️ {fname} 로드 실패")
 
-    # 콜론 이미지 (원하면 timer_colon.png 로 만들어두기)
+    # 콜론 이미지 (timer_colon.png 를 만들어뒀다면 사용)
     try:
         digit_images[':'] = load_image('timer_colon.png')
     except:
@@ -341,49 +355,40 @@ def draw_hp_sp_bar(fighter, side):
     hp_ratio = 0.0 if max_hp <= 0 else max(0.0, min(1.0, hp / max_hp))
     sp_ratio = 0.0 if max_sp <= 0 else max(0.0, min(1.0, sp / max_sp))
 
-    # ★ 더 아래로 + 더 작게
-    frame_y = H - 210        # 예전: H - 180
-    frame_w = 340            # 예전: 420
-    frame_h = 40             # 예전: 55
+    # ---- 프레임 크기(이미지 비율 유지해서 축소) ----
+    if ui_hp_frame:
+        src_w, src_h = ui_hp_frame.w, ui_hp_frame.h
+        frame_w = int(src_w * UI_SCALE)
+        frame_h = int(src_h * UI_SCALE)
+    else:
+        frame_w = 340
+        frame_h = 40
 
-    bar_w_max = 280          # 예전: 340
-    bar_h = 12               # 예전: 16
-    hp_y = frame_y + 6
-    sp_y = frame_y - 8
+    frame_y = H - UI_TOP_MARGIN
+    bar_w_max = int(frame_w * 0.8)
+    bar_h = int(frame_h * 0.25)
+
+    hp_y = frame_y + frame_h * 0.1
+    sp_y = frame_y - frame_h * 0.25
 
     if side == 'left':
-        frame_x = 230
+        frame_x = LEFT_HP_X
 
         if ui_hp_frame:
-            ui_hp_frame.clip_draw(
-                ui_hp_frame.w // 2, ui_hp_frame.h // 2,
-                ui_hp_frame.w, ui_hp_frame.h,
-                frame_x, frame_y,
-                frame_w, frame_h
-            )
+            ui_hp_frame.draw(frame_x, frame_y, frame_w, frame_h)
 
         if ui_hp_fill and hp_ratio > 0.0:
             w = int(bar_w_max * hp_ratio)
             cx = frame_x - bar_w_max / 2 + w / 2
-            ui_hp_fill.clip_draw(
-                ui_hp_fill.w // 2, ui_hp_fill.h // 2,
-                ui_hp_fill.w, ui_hp_fill.h,
-                int(cx), hp_y,
-                w, bar_h
-            )
+            ui_hp_fill.draw(int(cx), int(hp_y), w, bar_h)
 
         if ui_sp_fill and sp_ratio > 0.0:
             w = int(bar_w_max * sp_ratio)
             cx = frame_x - bar_w_max / 2 + w / 2
-            ui_sp_fill.clip_draw(
-                ui_sp_fill.w // 2, ui_sp_fill.h // 2,
-                ui_sp_fill.w, ui_sp_fill.h,
-                int(cx), sp_y,
-                w, bar_h
-            )
+            ui_sp_fill.draw(int(cx), int(sp_y), w, bar_h)
 
     else:  # right
-        frame_x = W - 230
+        frame_x = RIGHT_HP_X
 
         if ui_hp_frame:
             ui_hp_frame.clip_composite_draw(
@@ -401,7 +406,7 @@ def draw_hp_sp_bar(fighter, side):
                 ui_hp_fill.w // 2, ui_hp_fill.h // 2,
                 ui_hp_fill.w, ui_hp_fill.h,
                 0, 'h',
-                int(cx), hp_y,
+                int(cx), int(hp_y),
                 w, bar_h
             )
 
@@ -412,10 +417,9 @@ def draw_hp_sp_bar(fighter, side):
                 ui_sp_fill.w // 2, ui_sp_fill.h // 2,
                 ui_sp_fill.w, ui_sp_fill.h,
                 0, 'h',
-                int(cx), sp_y,
+                int(cx), int(sp_y),
                 w, bar_h
             )
-
 
 
 def draw_timer_ui():
@@ -425,19 +429,15 @@ def draw_timer_ui():
         return
 
     cx = W // 2
-    cy = H - 210        # 예전: H - 185  (조금 더 아래)
+    cy = TIMER_Y
 
-    dest_w = 180        # 예전: 220
-    dest_h = 90         # 예전: 110
-
+    # ---- 타이머 프레임 크기 ----
+    src_w, src_h = ui_timer_bg.w, ui_timer_bg.h
+    dest_w = int(src_w * TIMER_SCALE)
+    dest_h = int(src_h * TIMER_SCALE)
 
     # 타이머 배경
-    ui_timer_bg.clip_draw(
-        ui_timer_bg.w // 2, ui_timer_bg.h // 2,
-        ui_timer_bg.w, ui_timer_bg.h,
-        cx, cy,
-        dest_w, dest_h
-    )
+    ui_timer_bg.draw(cx, cy, dest_w, dest_h)
 
     # 남은 시간 -> "MM:SS" 문자열
     remain = get_remaining_time()
@@ -445,20 +445,18 @@ def draw_timer_ui():
     ss = remain % 60
     text = f"{mm:02}:{ss:02}"   # 예: "01:40"
 
-    # 숫자/콜론 이미지 크기 (적당히 조절)
-    digit_w = 26
-    digit_h = 38
-    gap = 2
+    digit_w = TIMER_DIGIT_W
+    digit_h = TIMER_DIGIT_H
+    gap = TIMER_DIGIT_GAP
 
     total_width = len(text) * (digit_w + gap) - gap
     start_x = cx - total_width / 2
-    base_y = cy - 6   # 박스 안의 y 위치
+    base_y = cy - 8   # 박스 안의 y 위치
 
     for ch in text:
         img = digit_images.get(ch, None)
         if img:
             img.draw(int(start_x + digit_w / 2), base_y, digit_w, digit_h)
-        # 이미지가 없어도 간격은 유지
         start_x += (digit_w + gap)
 
 
