@@ -187,16 +187,16 @@ def handle_combat(attacker, defender):
         return
 
     # --- 데미지/게이지 값 ---
-    DAMAGE_ATTACK = 5
-    DAMAGE_SKILL1 = 20
-    DAMAGE_SKILL2 = 35
-    DAMAGE_SKILL3 = 50
-
+    DAMAGE_ATTACK  = 5
+    DAMAGE_SKILL1  = 20
+    DAMAGE_SKILL2  = 35
+    DAMAGE_SKILL3  = 50
     SP_GAIN_ON_HIT = 10
 
-    damage = DAMAGE_ATTACK
-
     cur_state = getattr(attacker.state_machine, 'cur_state', None)
+
+    damage = DAMAGE_ATTACK
+    gain_sp = False  # ★ 평타일 때만 True
 
     if cur_state is getattr(attacker, 'SKILL', None):
         damage = DAMAGE_SKILL1
@@ -204,17 +204,27 @@ def handle_combat(attacker, defender):
         damage = DAMAGE_SKILL2
     elif cur_state is getattr(attacker, 'SKILL3', None):
         damage = DAMAGE_SKILL3
+    else:
+        # ★ 일반 공격(ATTACK / ATTACK2)일 때만 게이지 증가
+        if cur_state in (
+            getattr(attacker, 'ATTACK', None),
+            getattr(attacker, 'ATTACK2', None)
+        ):
+            gain_sp = True
 
+    # 피격
     defender.take_hit(damage, attacker.face_dir)
 
-    # 공격자 필살 게이지 증가
-    if hasattr(attacker, 'sp') and hasattr(attacker, 'max_sp'):
+    # 공격자 필살 게이지 증가 (평타일 때만)
+    if gain_sp and hasattr(attacker, 'sp') and hasattr(attacker, 'max_sp'):
         attacker.sp += SP_GAIN_ON_HIT
         if attacker.sp > attacker.max_sp:
             attacker.sp = attacker.max_sp
 
+    # 이 공격으로는 더 이상 맞지 않도록
     if hasattr(attacker, 'attack_hit_done'):
         attacker.attack_hit_done = True
+
 
 
 # -------------------------------------------------
@@ -348,24 +358,23 @@ def update():
 
 
 # -------------------------------------------------
-# HP / SP UI 상수 (타이머는 건드리지 않음)
+# HP / SP UI 상수  (타이머와는 별개)
 # -------------------------------------------------
-HP_FRAME_SCALE   = 0.30   # 프레임 이미지 축소 비율 (0.25~0.35 사이에서 취향대로)
-HP_FROM_TOP      = 150    # 화면 위에서 얼마나 떨어뜨릴지 (값을 키우면 더 아래로 내려감)
+HP_FRAME_SCALE   = 0.28   # 프레임 축소 비율 (0.25~0.35 사이에서 조절)
+HP_FROM_TOP      = 120    # 화면 맨 위에서 떨어진 정도 (값이 클수록 더 아래로 내려감)
 
-HP_LEFT_X        = 260    # 왼쪽 HP바 중심 x
-HP_RIGHT_X       = W - 260  # 오른쪽 HP바 중심 x
+HP_LEFT_X        = 260          # 왼쪽 HP바 중심 x
+HP_RIGHT_X       = W - 260      # 오른쪽 HP바 중심 x
 
 
-# -------------------------------------------------
-# UI 그리기 (HP/SP)
-# -------------------------------------------------
+
 def draw_hp_sp_bar(fighter, side):
     global ui_hp_frame, ui_hp_fill, ui_sp_fill
 
-    if fighter is None:
+    if fighter is None or ui_hp_frame is None:
         return
 
+    # ---- 캐릭터 현재 HP / SP ----
     max_hp = getattr(fighter, 'max_hp', 100)
     hp     = getattr(fighter, 'hp', max_hp)
     max_sp = getattr(fighter, 'max_sp', 100)
@@ -374,68 +383,76 @@ def draw_hp_sp_bar(fighter, side):
     hp_ratio = 0.0 if max_hp <= 0 else max(0.0, min(1.0, hp / max_hp))
     sp_ratio = 0.0 if max_sp <= 0 else max(0.0, min(1.0, sp / max_sp))
 
-    # ----- 프레임(검은 바) 크기 계산 -----
-    if not ui_hp_frame:
-        return
-
+    # -------------------------------------------------
+    # 1) 프레임(검은 바) 크기/위치
+    # -------------------------------------------------
     src_fw, src_fh = ui_hp_frame.w, ui_hp_frame.h
     frame_w = int(src_fw * HP_FRAME_SCALE)
     frame_h = int(src_fh * HP_FRAME_SCALE)
 
-    # 화면에서의 위치
     frame_y = H - HP_FROM_TOP
     frame_x = HP_LEFT_X if side == 'left' else HP_RIGHT_X
 
-    # ----- 프레임 그리기 -----
+    # 화면 안쪽에 완전히 들어오도록 Y만 조정
+    if frame_y + frame_h / 2 > H:
+        frame_y = H - frame_h / 2 - 1
+
+    # 좌/우 프레임 그리기
     if side == 'left':
-        # 좌측은 그대로
         ui_hp_frame.draw(frame_x, frame_y, frame_w, frame_h)
     else:
-        # 우측은 좌우 반전
         ui_hp_frame.composite_draw(0, 'h', frame_x, frame_y, frame_w, frame_h)
 
-    # ----- 내부 HP / SP 바 크기 계산 -----
-    # 프레임 안쪽에 들어가도록 폭/높이 비율 조정
-    bar_max_w = int(frame_w * 0.82)     # 프레임보다 조금 작게
-    bar_h     = int(frame_h * 0.28)     # 프레임 높이의 약 1/3 정도
+    # -------------------------------------------------
+    # 2) 안쪽 HP/SP 바 위치(스크린샷처럼 위 빨간, 아래 파란)
+    #    프레임 안쪽에 약간의 여백을 둠
+    # -------------------------------------------------
+    inner_margin_x = frame_w * 0.08   # 좌우 여백
+    bar_max_w      = frame_w - inner_margin_x * 2
+    bar_h          = int(frame_h * 0.23)  # 프레임 높이의 ~1/4 정도
 
-    # HP 바는 위쪽, SP 바는 아래쪽
-    hp_y = frame_y + bar_h * 0.35
-    sp_y = frame_y - bar_h * 0.35
+    # HP 위쪽, SP 아래쪽
+    hp_y = frame_y + bar_h * 0.8
+    sp_y = frame_y - bar_h * 0.8
 
-    # ---------------- HP (빨간바) ----------------
+    # ---------------- HP (빨간 바) ----------------
     if ui_hp_fill and hp_ratio > 0.0:
         w = int(bar_max_w * hp_ratio)
 
         if side == 'left':
             # 왼쪽 HP: 왼쪽에서 오른쪽으로 줄어들게
-            cx = frame_x - bar_max_w / 2 + w / 2
+            left_x = frame_x - bar_max_w / 2
+            cx = left_x + w / 2
             ui_hp_fill.draw(int(cx), int(hp_y), w, bar_h)
         else:
             # 오른쪽 HP: 오른쪽에서 왼쪽으로 줄어들게 (좌우 반전)
-            cx = frame_x + bar_max_w / 2 - w / 2
+            right_x = frame_x + bar_max_w / 2
+            cx = right_x - w / 2
             ui_hp_fill.composite_draw(
                 0, 'h',
                 int(cx), int(hp_y),
                 w, bar_h
             )
 
-    # ---------------- SP (파란바) ----------------
+    # ---------------- SP (파란 바) ----------------
     if ui_sp_fill and sp_ratio > 0.0:
         w = int(bar_max_w * sp_ratio)
 
         if side == 'left':
             # 왼쪽 SP: 왼쪽에서 오른쪽으로 차오르게
-            cx = frame_x - bar_max_w / 2 + w / 2
+            left_x = frame_x - bar_max_w / 2
+            cx = left_x + w / 2
             ui_sp_fill.draw(int(cx), int(sp_y), w, bar_h)
         else:
             # 오른쪽 SP: 오른쪽에서 왼쪽으로 차오르게
-            cx = frame_x + bar_max_w / 2 - w / 2
+            right_x = frame_x + bar_max_w / 2
+            cx = right_x - w / 2
             ui_sp_fill.composite_draw(
                 0, 'h',
                 int(cx), int(sp_y),
                 w, bar_h
             )
+
 
 
 
