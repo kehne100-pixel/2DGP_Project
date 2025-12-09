@@ -11,7 +11,6 @@ from sdl2 import (
 import game_framework
 from state_machine import StateMachine
 
-
 # -----------------------------
 # 이벤트 체크 함수들
 # -----------------------------
@@ -220,7 +219,7 @@ Run_frame_per_second = Run_frames_per_action * Run_action_per_time
 
 
 # -----------------------------
-# 상태 클래스들
+# 상태들
 # -----------------------------
 class Idle:
     def __init__(self, keroro):
@@ -233,8 +232,10 @@ class Idle:
         self.keroro.wait_start_time = get_time()
         self.frame = 0.0
 
+        # 플래그 초기화
         self.keroro.is_attacking = False
         self.keroro.attack_hit_done = False
+        self.keroro.is_guarding = False
 
     def exit(self, e):
         pass
@@ -277,6 +278,10 @@ class Run:
                     self.keroro.dir = -1
                     self.keroro.face_dir = -1
 
+        self.keroro.is_attacking = False
+        self.keroro.attack_hit_done = False
+        self.keroro.is_guarding = False
+
     def exit(self, e):
         pass
 
@@ -287,6 +292,7 @@ class Run:
 
     def draw(self):
         self.keroro._ensure_image()
+
         draw_from_cfg(
             self.keroro.image,
             'run',
@@ -320,12 +326,11 @@ class Attack:
 
         self.move_during_attack = (self.keroro.dir != 0)
 
-        # 공격 시작
         self.keroro.is_attacking = True
         self.keroro.attack_hit_done = False
+        self.keroro.is_guarding = False
 
     def exit(self, e):
-        # 공격 끝
         self.keroro.is_attacking = False
 
     def do(self):
@@ -343,10 +348,7 @@ class Attack:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.move_during_attack:
-                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.keroro._ensure_image()
@@ -387,6 +389,7 @@ class Attack2:
 
         self.keroro.is_attacking = True
         self.keroro.attack_hit_done = False
+        self.keroro.is_guarding = False
 
     def exit(self, e):
         self.keroro.is_attacking = False
@@ -406,16 +409,14 @@ class Attack2:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.move_during_attack:
-                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.keroro._ensure_image()
         idx = int(self.frame)
 
         offset = 50
+
         if self.keroro.face_dir == -1:
             draw_from_cfg(
                 self.keroro.image,
@@ -450,11 +451,14 @@ class Guard:
         self.frame_count = SPRITE['guard']['frames']
         self.keroro.dir = 0
 
+        # 가드 시작
+        self.keroro.is_guarding = True
         self.keroro.is_attacking = False
         self.keroro.attack_hit_done = False
 
     def exit(self, e):
-        pass
+        # 가드 종료
+        self.keroro.is_guarding = False
 
     def do(self):
         self.frame = (self.frame + self.anim_speed) % self.frame_count
@@ -492,6 +496,7 @@ class Jump:
 
         self.keroro.is_attacking = False
         self.keroro.attack_hit_done = False
+        self.keroro.is_guarding = False
 
     def exit(self, e):
         pass
@@ -586,13 +591,13 @@ class Skill:
         self.finished = False
         self.hold_timer = 0.0
 
-        if self.keroro.face_dir != 0:
-            self.keroro.dir = self.keroro.face_dir
-
-        self.move_during_skill = (self.keroro.dir != 0)
+        # 제자리에서 사용하는 스킬
+        self.keroro.dir = 0
+        self.move_during_skill = False
 
         self.keroro.is_attacking = True
         self.keroro.attack_hit_done = False
+        self.keroro.is_guarding = False
 
     def exit(self, e):
         self.keroro.dir = 0
@@ -602,10 +607,6 @@ class Skill:
         if not self.finished:
             self.frame += self.anim_speed
 
-            if self.move_during_skill:
-                self.keroro.x += self.keroro.dir * self.SPEED
-                self.keroro.x = max(50, min(1550, self.keroro.x))
-
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
                 self.finished = True
@@ -613,17 +614,11 @@ class Skill:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.keroro.dir != 0:
-                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
-
-        skill_draw_w = 110
-        skill_draw_h = 110
 
         draw_from_cfg(
             self.keroro.image,
@@ -632,8 +627,7 @@ class Skill:
             self.keroro.face_dir,
             self.keroro.x,
             self.keroro.y + 10,
-            skill_draw_w,
-            skill_draw_h
+            110, 110
         )
 
 
@@ -649,7 +643,7 @@ class Skill2:
         self.anim_speed = 0.08
         self.finished = False
 
-        self.hold_time = 0.35
+        self.hold_time = 0.5
         self.hold_timer = 0.0
 
     def enter(self, e):
@@ -657,13 +651,12 @@ class Skill2:
         self.finished = False
         self.hold_timer = 0.0
 
-        if self.keroro.face_dir != 0:
-            self.keroro.dir = self.keroro.face_dir
-
-        self.move_during_skill = (self.keroro.dir != 0)
+        self.keroro.dir = 0
+        self.move_during_skill = False
 
         self.keroro.is_attacking = True
         self.keroro.attack_hit_done = False
+        self.keroro.is_guarding = False
 
     def exit(self, e):
         self.keroro.dir = 0
@@ -673,10 +666,6 @@ class Skill2:
         if not self.finished:
             self.frame += self.anim_speed
 
-            if self.move_during_skill:
-                self.keroro.x += self.keroro.dir * self.SPEED
-                self.keroro.x = max(50, min(1550, self.keroro.x))
-
             if self.frame >= self.frame_count:
                 self.frame = self.frame_count - 1
                 self.finished = True
@@ -684,17 +673,11 @@ class Skill2:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.keroro.dir != 0:
-                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
-
-        skill_draw_w = 110
-        skill_draw_h = 110
 
         draw_from_cfg(
             self.keroro.image,
@@ -703,8 +686,7 @@ class Skill2:
             self.keroro.face_dir,
             self.keroro.x,
             self.keroro.y + 10,
-            skill_draw_w,
-            skill_draw_h
+            110, 110
         )
 
 
@@ -730,6 +712,7 @@ class Skill3:
         self.frame = 0.0
         self.finished = False
         self.hold_timer = 0.0
+
         self.start_timer = 0.0
 
         if self.keroro.face_dir != 0:
@@ -739,6 +722,7 @@ class Skill3:
 
         self.keroro.is_attacking = True
         self.keroro.attack_hit_done = False
+        self.keroro.is_guarding = False
 
     def exit(self, e):
         self.keroro.dir = 0
@@ -763,17 +747,11 @@ class Skill3:
             self.hold_timer += game_framework.frame_time
 
             if self.hold_timer >= self.hold_time:
-                if self.keroro.dir != 0:
-                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_RUN', None))
-                else:
-                    self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
+                self.keroro.state_machine.handle_state_event(('ATTACK_DONE_IDLE', None))
 
     def draw(self):
         self.keroro._ensure_image()
         idx = int(self.frame) % self.frame_count
-
-        skill_draw_w = 110
-        skill_draw_h = 110
 
         draw_from_cfg(
             self.keroro.image,
@@ -782,8 +760,7 @@ class Skill3:
             self.keroro.face_dir,
             self.keroro.x,
             self.keroro.y + 10,
-            skill_draw_w,
-            skill_draw_h
+            110, 110
         )
 
 
@@ -808,6 +785,7 @@ class Hit:
 
         self.keroro.is_attacking = False
         self.keroro.attack_hit_done = False
+        self.keroro.is_guarding = False
 
         self.knock_dir = self.keroro.hit_from_dir if hasattr(self.keroro, 'hit_from_dir') else 0
 
@@ -855,11 +833,12 @@ class Keroro:
         self.image_name = 'Keroro_Sheet.png'
         self.image = None
 
-        # HP, 공격 관련
-        self.hp = 100
-        self.is_attacking = False
-        self.attack_hit_done = False
-        self.hit_from_dir = 0
+        self.max_hp = 100
+        self.hp = self.max_hp
+        self.max_sp = 100
+        self.sp = 0
+        self.is_guarding = False
+        self.has_hit = False
 
         # 상태 인스턴스
         self.IDLE    = Idle(self)
@@ -907,19 +886,19 @@ class Keroro:
 
                 self.ATTACK: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
+                    attack_done_run:  self.IDLE,
                     got_hit:          self.HIT,
                 },
 
                 self.ATTACK2: {
                     attack_done_idle: self.IDLE,
-                    attack_done_run:  self.RUN,
+                    attack_done_run:  self.IDLE,
                     got_hit:          self.HIT,
                 },
 
                 self.GUARD: {
                     a_up:   self.IDLE,
-                    got_hit: self.HIT,
+                    # got_hit: self.HIT  # 가드 중에는 데미지/넉백 없음 (Hit로 안 보냄)
                 },
 
                 self.JUMP: {
@@ -992,6 +971,10 @@ class Keroro:
 
     def take_hit(self, damage, attacker_dir):
         """피격 처리 (play_mode에서 호출)"""
+        # 가드 중이면 데미지/넉백 없음
+        if self.is_guarding:
+            return
+
         self.hp -= damage
         if self.hp < 0:
             self.hp = 0
