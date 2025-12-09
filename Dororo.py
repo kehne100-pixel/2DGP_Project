@@ -34,7 +34,7 @@ def skill_down(e):   return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1
 def skill2_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_2
 def skill3_down(e):  return e[0] == 'INPUT' and e[1].type == SDL_KEYDOWN and e[1].key == SDLK_3
 
-# ❗ 맞았을 때 / Hit 끝났을 때
+
 def got_hit(e):   return e[0] == 'GOT_HIT'
 def hit_end(e):   return e[0] == 'HIT_END'
 
@@ -839,12 +839,12 @@ class Dororo:
         self.image_name = 'Dororo_Sheet.png'
         self.image = None
 
-        # HP / 공격 / 가드 관련
-        self.hp = 100
-        self.is_attacking = False
-        self.attack_hit_done = False
-        self.hit_from_dir = 0
+        self.max_hp = 100
+        self.hp = self.max_hp
+        self.max_sp = 100
+        self.sp = 0
         self.is_guarding = False
+        self.has_hit = False
 
         # 상태 인스턴스
         self.IDLE    = Idle(self)
