@@ -46,29 +46,54 @@ digit_images = {}
 ROUND_TIME = 120.0        # 라운드 시간(초)
 round_start_time = 0.0    # 시작 시각
 
-# HP / SP 바 위치/크기 (프레임 기준)
+# ================= HP 프레임 위치/크기 =================
 HP_FRAME_Y   = H - 150    # 체력바 Y 위치
-HP_FRAME_W   = 650        # 체력바 전체 길이(프레임 폭)
-HP_FRAME_H   = 120         # 체력바 프레임 높이 (검은 바)
+HP_FRAME_H   = 120        # 체력바 프레임 높이 (검은 바 높이)
 
-LEFT_HP_X  = 260          # 왼쪽 HP바 중심 x
-RIGHT_HP_X = W - 260      # 오른쪽 HP바 중심 x
+# ★ 좌우 각각 프레임 가로 길이
+LEFT_HP_FRAME_W  = 600    # 왼쪽(내 캐릭터) 검은 HP 프레임 길이
+RIGHT_HP_FRAME_W = 600    # 오른쪽(적 캐릭터) 검은 HP 프레임 길이
 
-# ---- 프레임 안쪽에 들어가는 HP(주황) 바 여백/크기 ----
-HP_INNER_MARGIN_X = 14    # 프레임에서 좌우로 띄울 여백
-HP_INNER_MARGIN_Y = 6     # (지금은 사용 안 해도 됨)
+# ★ 좌우 각각 프레임 중심 X (좌우 위치)
+LEFT_HP_X  = 290          # 내 HP 프레임 중심 X
+RIGHT_HP_X = W - 230      # 적 HP 프레임 중심 X
 
-HP_FILL_W_MAX = HP_FRAME_W - HP_INNER_MARGIN_X * 2 + 40  # 주황바 최대 길이
-# ★ 주황 HP바의 화면상 높이(프레임 높이와 완전히 분리됨)
-HP_FILL_H     = 32        # 필요하면 숫자만 바꿔서 두께 조절
+# 프레임 안쪽에서 주황바가 들어갈 여백
+HP_INNER_MARGIN_X = 10    # 프레임에서 좌우로 띄울 여백 (원하면 조절)
+HP_INNER_MARGIN_Y = 12    # (필요하면 사용)
 
-# ---- SP 프레임/바 비율 ----
-SP_FRAME_W_RATE   = 0.80      # HP 프레임 폭의 65%
-SP_FRAME_H_RATE   = 0.80      # HP 프레임 높이의 55%
-SP_INNER_MARGIN_X = 6         # SP 프레임 안쪽 여백 (좌우)
-SP_INNER_MARGIN_Y = 4         # (지금은 사용 안 해도 됨)
-# ★ 파란 SP바의 화면상 높이(프레임과 분리)
-SP_FILL_H         = 30        # 필요하면 숫자만 바꿔서 두께 조절
+# ================ HP 채우기(주황 바) 크기 ================
+# ★ 프레임 "안쪽 길이"와 딱 맞게 설정 (프레임폭 - 양쪽 여백)
+LEFT_HP_FILL_W_MAX  = LEFT_HP_FRAME_W  - HP_INNER_MARGIN_X * 2
+RIGHT_HP_FILL_W_MAX = RIGHT_HP_FRAME_W - HP_INNER_MARGIN_X * 2
+
+# ★ 주황바 세로 높이 (프레임과 독립)
+HP_FILL_H = 30
+
+# ================= SP 프레임/바 위치/크기 =================
+SP_OFFSET_Y = 22          # HP 아래로 얼마나 내릴지 (HP_FRAME_Y - SP_OFFSET_Y)
+
+# ★ 좌우 각각 SP 프레임 중심 X (HP와 완전히 분리해서 조정 가능)
+LEFT_SP_X  = 255
+RIGHT_SP_X = W - 200
+
+# ★ 좌우 각각 SP 프레임 가로 길이
+LEFT_SP_FRAME_W  = 500
+RIGHT_SP_FRAME_W = 500
+
+# SP 프레임 높이
+SP_FRAME_H = 120
+
+# 프레임 안쪽 여백
+SP_INNER_MARGIN_X = 10
+SP_INNER_MARGIN_Y = 4
+
+# ★ 좌우 각각 SP 채우기(파란 바) 최대 가로 길이 (프레임과 독립)
+LEFT_SP_FILL_W_MAX  = 380
+RIGHT_SP_FILL_W_MAX = 380
+
+# 파란 바 높이
+SP_FILL_H = 60
 
 # 타이머 (지금 쓰는 값 유지)
 TIMER_SCALE     = 0.35
@@ -118,7 +143,6 @@ def create_fighter(name, is_left=True):
 
 # -------------------------------------------------
 # 몸통 충돌 (서로 살짝 밀치기)
-# -------------------------------------------------
 def resolve_body_collision():
     global player, enemy
     if not player or not enemy:
@@ -132,13 +156,16 @@ def resolve_body_collision():
         return
 
     distance = abs(dx)
+
+    # 💡 서로 너무 붙어 있을 때만 밀어낸다
     if distance < min_distance:
         overlap = min_distance - distance
         push = overlap / 2.0
-        if dx > 0:
+
+        if dx > 0:   # enemy가 player 오른쪽에 있음
             player.x -= push
             enemy.x += push
-        else:
+        else:        # enemy가 player 왼쪽에 있음
             player.x += push
             enemy.x -= push
 
@@ -375,10 +402,9 @@ def update():
 # -------------------------------------------------
 def draw_hp_sp_bar(fighter, side):
     """
-    - 검은 HP 프레임(ui_hp_frame)은 항상 고정된 위치/크기
-    - 주황 HP 바(ui_hp_fill)는 프레임 안쪽(마진 포함)에서만 길이만 줄어듦
-      → 체력 감소 시 뒤에 있는 검은 프레임이 드러남
-    - 오른쪽 HP바는 오른쪽 끝 고정, 왼쪽으로 줄어듦
+    - 각 사이드(왼쪽/오른쪽)에 대해
+      HP프레임, HP바, SP프레임, SP바의 위치/크기를 전부 별도로 사용
+    - HP바는 프레임 안쪽에서만 길이가 줄어들고, 한쪽 끝(anchor)은 고정
     """
     global ui_hp_frame, ui_sp_frame, ui_hp_fill, ui_sp_fill
 
@@ -394,37 +420,58 @@ def draw_hp_sp_bar(fighter, side):
     hp_ratio = 0.0 if max_hp <= 0 else max(0.0, min(1.0, hp / max_hp))
     sp_ratio = 0.0 if max_sp <= 0 else max(0.0, min(1.0, sp / max_sp))
 
-    # --- 프레임 위치 ---
+    # --- 공통 Y 위치 ---
     hp_y = HP_FRAME_Y
-    sp_y = HP_FRAME_Y - 22  # HP 바로 아래에 SP
+    sp_y = HP_FRAME_Y - SP_OFFSET_Y
 
+    # ---------- 사이드별 상수 선택 ----------
     if side == 'left':
-        base_x = LEFT_HP_X
+        # HP
+        hp_base_x      = LEFT_HP_X
+        hp_frame_w     = LEFT_HP_FRAME_W
+        hp_fill_w_max  = LEFT_HP_FILL_W_MAX
+
+        # SP
+        sp_base_x      = LEFT_SP_X
+        sp_frame_w     = LEFT_SP_FRAME_W
+        sp_fill_w_max  = LEFT_SP_FILL_W_MAX
+
         anchor_left = True   # 왼쪽 끝 고정
     else:
-        base_x = RIGHT_HP_X
+        hp_base_x      = RIGHT_HP_X
+        hp_frame_w     = RIGHT_HP_FRAME_W
+        hp_fill_w_max  = RIGHT_HP_FILL_W_MAX
+
+        sp_base_x      = RIGHT_SP_X
+        sp_frame_w     = RIGHT_SP_FRAME_W
+        sp_fill_w_max  = RIGHT_SP_FILL_W_MAX
+
         anchor_left = False  # 오른쪽 끝 고정
 
     # ===================== HP 프레임(검은 바) =====================
     if ui_hp_frame:
-        ui_hp_frame.draw(base_x, hp_y, HP_FRAME_W, HP_FRAME_H)
+        ui_hp_frame.draw(hp_base_x, hp_y, hp_frame_w, HP_FRAME_H)
 
-    # 프레임의 왼쪽/오른쪽 X
-    frame_left  = base_x - HP_FRAME_W / 2
-    frame_right = base_x + HP_FRAME_W / 2
+    frame_left  = hp_base_x - hp_frame_w / 2
+    frame_right = hp_base_x + hp_frame_w / 2
 
-    # 프레임 안쪽(주황바가 들어갈 영역) 왼쪽/오른쪽 X
+    # 프레임 안쪽에서 주황 바가 움직일 수 있는 영역
     hp_inner_left  = frame_left  + HP_INNER_MARGIN_X
     hp_inner_right = frame_right - HP_INNER_MARGIN_X
+
+    # (프레임 안쪽 폭: 참고용, 필요하면 디버깅에 사용 가능)
+    hp_inner_width = hp_inner_right - hp_inner_left
+
+    # ★ 주황바 최대 길이 = 상단에서 정의한 HP_FILL_W_MAX (프레임 안쪽 길이와 동일)
+    hp_draw_w_max = hp_fill_w_max
 
     # ===================== HP 채우기(주황 바) =====================
     if ui_hp_fill and hp_ratio > 0.0:
         img = ui_hp_fill
 
-        cur_w = HP_FILL_W_MAX * hp_ratio   # 현재 체력에 따른 길이
-        dst_h = HP_FILL_H                  # ★ 프레임 높이와 독립
+        cur_w = hp_draw_w_max * hp_ratio   # 현재 체력에 따른 길이
+        dst_h = HP_FILL_H                  # 프레임과 독립된 높이
 
-        # 이미지 소스에서 비율만큼 잘라내기
         src_full_w = img.w
         src_h      = img.h
         src_w      = int(src_full_w * hp_ratio)
@@ -432,11 +479,9 @@ def draw_hp_sp_bar(fighter, side):
             src_w = 1
 
         if anchor_left:
-            # 왼쪽 고정
             src_left = 0
             dst_cx = hp_inner_left + cur_w / 2
         else:
-            # 오른쪽 고정
             src_left = src_full_w - src_w
             dst_cx = hp_inner_right - cur_w / 2
 
@@ -449,29 +494,26 @@ def draw_hp_sp_bar(fighter, side):
 
     # ===================== SP 프레임 =====================
     if ui_sp_frame is None:
-        ui_sp_frame = ui_hp_frame  # 별도 이미지 없으면 HP 프레임 재사용
-
-    sp_frame_w = HP_FRAME_W * SP_FRAME_W_RATE
-    sp_frame_h = HP_FRAME_H * SP_FRAME_H_RATE
+        ui_sp_frame = ui_hp_frame
 
     if ui_sp_frame:
-        ui_sp_frame.draw(base_x, sp_y, sp_frame_w, sp_frame_h)
+        ui_sp_frame.draw(sp_base_x, sp_y, sp_frame_w, SP_FRAME_H)
 
-    # SP 프레임 왼쪽/오른쪽
-    sp_frame_left  = base_x - sp_frame_w / 2
-    sp_frame_right = base_x + sp_frame_w / 2
+    sp_frame_left  = sp_base_x - sp_frame_w / 2
+    sp_frame_right = sp_base_x + sp_frame_w / 2
 
-    # SP 안쪽 바 영역
-    sp_fill_w_max = sp_frame_w - SP_INNER_MARGIN_X * 2
     sp_inner_left  = sp_frame_left  + SP_INNER_MARGIN_X
     sp_inner_right = sp_frame_right - SP_INNER_MARGIN_X
+
+    sp_inner_width = sp_inner_right - sp_inner_left
+    sp_draw_w_max  = min(sp_fill_w_max, sp_inner_width)
 
     # ===================== SP 채우기(파란 바) =====================
     if ui_sp_fill and sp_ratio > 0.0:
         img = ui_sp_fill
 
-        cur_w = sp_fill_w_max * sp_ratio
-        dst_h = SP_FILL_H       # ★ 프레임 높이와 독립
+        cur_w = sp_draw_w_max * sp_ratio
+        dst_h = SP_FILL_H
 
         src_full_w = img.w
         src_h      = img.h
@@ -506,19 +548,16 @@ def draw_timer_ui():
     cx = W // 2 + 15
     cy = TIMER_Y
 
-    # ---- 타이머 프레임 크기 ----
     src_w, src_h = ui_timer_bg.w, ui_timer_bg.h
     dest_w = int(src_w * TIMER_SCALE)
     dest_h = int(src_h * TIMER_SCALE)
 
-    # 타이머 배경
     ui_timer_bg.draw(cx, cy, dest_w, dest_h)
 
-    # 남은 시간 -> "MM:SS" 문자열
     remain = get_remaining_time()
     mm = remain // 60
     ss = remain % 60
-    text = f"{mm:02}:{ss:02}"   # 예: "01:40"
+    text = f"{mm:02}:{ss:02}"
 
     digit_w = TIMER_DIGIT_W
     digit_h = TIMER_DIGIT_H
@@ -526,7 +565,7 @@ def draw_timer_ui():
 
     total_width = len(text) * (digit_w + gap) - gap
     start_x = cx - total_width / 2
-    base_y = cy - 8   # 박스 안의 y 위치
+    base_y = cy - 8
 
     for ch in text:
         img = digit_images.get(ch, None)
@@ -574,13 +613,11 @@ def draw():
         set_clear_color(0.5, 0.5, 0.5, 1.0)
         clear_canvas()
 
-    # ----- 캐릭터 -----
     if player:
         player.draw()
     if enemy:
         enemy.draw()
 
-    # ----- UI (HP/SP + 타이머) -----
     draw_hp_sp_bar(player, 'left')
     draw_hp_sp_bar(enemy, 'right')
     draw_timer_ui()
