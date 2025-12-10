@@ -46,13 +46,29 @@ digit_images = {}
 ROUND_TIME = 120.0        # 라운드 시간(초)
 round_start_time = 0.0    # 시작 시각
 
-# HP / SP 바 위치/크기
+# HP / SP 바 위치/크기 (프레임 기준)
 HP_FRAME_Y   = H - 150    # 체력바 Y 위치
-HP_FRAME_W   = 700        # 체력바 전체 길이(프레임 폭)
-HP_FRAME_H   = 40         # 체력바 프레임 높이
+HP_FRAME_W   = 650        # 체력바 전체 길이(프레임 폭)
+HP_FRAME_H   = 120         # 체력바 프레임 높이 (검은 바)
 
 LEFT_HP_X  = 260          # 왼쪽 HP바 중심 x
 RIGHT_HP_X = W - 260      # 오른쪽 HP바 중심 x
+
+# ---- 프레임 안쪽에 들어가는 HP(주황) 바 여백/크기 ----
+HP_INNER_MARGIN_X = 14    # 프레임에서 좌우로 띄울 여백
+HP_INNER_MARGIN_Y = 6     # (지금은 사용 안 해도 됨)
+
+HP_FILL_W_MAX = HP_FRAME_W - HP_INNER_MARGIN_X * 2 + 40  # 주황바 최대 길이
+# ★ 주황 HP바의 화면상 높이(프레임 높이와 완전히 분리됨)
+HP_FILL_H     = 32        # 필요하면 숫자만 바꿔서 두께 조절
+
+# ---- SP 프레임/바 비율 ----
+SP_FRAME_W_RATE   = 0.80      # HP 프레임 폭의 65%
+SP_FRAME_H_RATE   = 0.80      # HP 프레임 높이의 55%
+SP_INNER_MARGIN_X = 6         # SP 프레임 안쪽 여백 (좌우)
+SP_INNER_MARGIN_Y = 4         # (지금은 사용 안 해도 됨)
+# ★ 파란 SP바의 화면상 높이(프레임과 분리)
+SP_FILL_H         = 30        # 필요하면 숫자만 바꿔서 두께 조절
 
 # 타이머 (지금 쓰는 값 유지)
 TIMER_SCALE     = 0.35
@@ -359,16 +375,17 @@ def update():
 # -------------------------------------------------
 def draw_hp_sp_bar(fighter, side):
     """
-    - 검은 HP 프레임(ui_hp_frame)은 항상 같은 위치/크기로 고정
-    - 주황 HP 바(ui_hp_fill)는 왼쪽/오른쪽 끝을 기준으로만 줄어듦
-      (왼쪽 체력바는 왼쪽 고정, 오른쪽 체력바는 오른쪽 고정)
+    - 검은 HP 프레임(ui_hp_frame)은 항상 고정된 위치/크기
+    - 주황 HP 바(ui_hp_fill)는 프레임 안쪽(마진 포함)에서만 길이만 줄어듦
+      → 체력 감소 시 뒤에 있는 검은 프레임이 드러남
+    - 오른쪽 HP바는 오른쪽 끝 고정, 왼쪽으로 줄어듦
     """
     global ui_hp_frame, ui_sp_frame, ui_hp_fill, ui_sp_fill
 
     if fighter is None:
         return
 
-    # --- 값 가져오기 ---
+    # --- 스탯 가져오기 ---
     max_hp = getattr(fighter, 'max_hp', 100)
     hp     = getattr(fighter, 'hp', max_hp)
     max_sp = getattr(fighter, 'max_sp', 100)
@@ -377,66 +394,104 @@ def draw_hp_sp_bar(fighter, side):
     hp_ratio = 0.0 if max_hp <= 0 else max(0.0, min(1.0, hp / max_hp))
     sp_ratio = 0.0 if max_sp <= 0 else max(0.0, min(1.0, sp / max_sp))
 
-    # --- 공통 위치(왼쪽/오른쪽만 다름) ---
+    # --- 프레임 위치 ---
     hp_y = HP_FRAME_Y
-    sp_y = HP_FRAME_Y - 22      # HP바 아래쪽에 SP바
+    sp_y = HP_FRAME_Y - 22  # HP 바로 아래에 SP
 
     if side == 'left':
         base_x = LEFT_HP_X
-        hp_anchor_left = True   # 왼쪽 기준
+        anchor_left = True   # 왼쪽 끝 고정
     else:
         base_x = RIGHT_HP_X
-        hp_anchor_left = False  # 오른쪽 기준
+        anchor_left = False  # 오른쪽 끝 고정
 
-    # ===================== HP 바 =====================
-    full_w  = HP_FRAME_W
-    frame_h = HP_FRAME_H
-
-    # 1) 검은 프레임(바닥)은 항상 고정
+    # ===================== HP 프레임(검은 바) =====================
     if ui_hp_frame:
-        ui_hp_frame.draw(base_x, hp_y, full_w, frame_h)
+        ui_hp_frame.draw(base_x, hp_y, HP_FRAME_W, HP_FRAME_H)
 
-    # 2) 주황 HP 바
+    # 프레임의 왼쪽/오른쪽 X
+    frame_left  = base_x - HP_FRAME_W / 2
+    frame_right = base_x + HP_FRAME_W / 2
+
+    # 프레임 안쪽(주황바가 들어갈 영역) 왼쪽/오른쪽 X
+    hp_inner_left  = frame_left  + HP_INNER_MARGIN_X
+    hp_inner_right = frame_right - HP_INNER_MARGIN_X
+
+    # ===================== HP 채우기(주황 바) =====================
     if ui_hp_fill and hp_ratio > 0.0:
-        cur_w = full_w * hp_ratio         # 현재 HP 비율만큼 길이
-        bar_h = frame_h                   # 프레임과 높이 동일
+        img = ui_hp_fill
 
-        if hp_anchor_left:
-            # 왼쪽 끝 고정
-            left_x = base_x - full_w / 2          # 프레임의 왼쪽 x
-            bar_cx = left_x + cur_w / 2           # 줄어드는 길이의 중앙
+        cur_w = HP_FILL_W_MAX * hp_ratio   # 현재 체력에 따른 길이
+        dst_h = HP_FILL_H                  # ★ 프레임 높이와 독립
+
+        # 이미지 소스에서 비율만큼 잘라내기
+        src_full_w = img.w
+        src_h      = img.h
+        src_w      = int(src_full_w * hp_ratio)
+        if src_w < 1:
+            src_w = 1
+
+        if anchor_left:
+            # 왼쪽 고정
+            src_left = 0
+            dst_cx = hp_inner_left + cur_w / 2
         else:
-            # 오른쪽 끝 고정
-            right_x = base_x + full_w / 2         # 프레임의 오른쪽 x
-            bar_cx  = right_x - cur_w / 2
+            # 오른쪽 고정
+            src_left = src_full_w - src_w
+            dst_cx = hp_inner_right - cur_w / 2
 
-        ui_hp_fill.draw(bar_cx, hp_y, cur_w, bar_h)
+        img.clip_draw(
+            int(src_left), 0,
+            int(src_w), int(src_h),
+            int(dst_cx), int(hp_y),
+            int(cur_w), int(dst_h)
+        )
 
-    # ===================== SP 바 =====================
-    # SP 프레임은 HP보다 조금 짧고 얇게
-    sp_frame_w = HP_FRAME_W * 0.65
-    sp_frame_h = HP_FRAME_H * 0.55
-
+    # ===================== SP 프레임 =====================
     if ui_sp_frame is None:
         ui_sp_frame = ui_hp_frame  # 별도 이미지 없으면 HP 프레임 재사용
+
+    sp_frame_w = HP_FRAME_W * SP_FRAME_W_RATE
+    sp_frame_h = HP_FRAME_H * SP_FRAME_H_RATE
 
     if ui_sp_frame:
         ui_sp_frame.draw(base_x, sp_y, sp_frame_w, sp_frame_h)
 
+    # SP 프레임 왼쪽/오른쪽
+    sp_frame_left  = base_x - sp_frame_w / 2
+    sp_frame_right = base_x + sp_frame_w / 2
+
+    # SP 안쪽 바 영역
+    sp_fill_w_max = sp_frame_w - SP_INNER_MARGIN_X * 2
+    sp_inner_left  = sp_frame_left  + SP_INNER_MARGIN_X
+    sp_inner_right = sp_frame_right - SP_INNER_MARGIN_X
+
+    # ===================== SP 채우기(파란 바) =====================
     if ui_sp_fill and sp_ratio > 0.0:
-        full_w = sp_frame_w
-        cur_w  = full_w * sp_ratio
-        bar_h  = sp_frame_h * 0.7
+        img = ui_sp_fill
 
-        if hp_anchor_left:
-            left_x = base_x - full_w / 2
-            bar_cx = left_x + cur_w / 2
+        cur_w = sp_fill_w_max * sp_ratio
+        dst_h = SP_FILL_H       # ★ 프레임 높이와 독립
+
+        src_full_w = img.w
+        src_h      = img.h
+        src_w      = int(src_full_w * sp_ratio)
+        if src_w < 1:
+            src_w = 1
+
+        if anchor_left:
+            src_left = 0
+            dst_cx = sp_inner_left + cur_w / 2
         else:
-            right_x = base_x + full_w / 2
-            bar_cx  = right_x - cur_w / 2
+            src_left = src_full_w - src_w
+            dst_cx = sp_inner_right - cur_w / 2
 
-        ui_sp_fill.draw(bar_cx, sp_y, cur_w, bar_h)
-
+        img.clip_draw(
+            int(src_left), 0,
+            int(src_w), int(src_h),
+            int(dst_cx), int(sp_y),
+            int(cur_w), int(dst_h)
+        )
 
 
 # -------------------------------------------------
