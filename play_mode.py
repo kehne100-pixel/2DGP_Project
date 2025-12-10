@@ -57,6 +57,13 @@ img_lose = None
 img_draw = None
 
 # -------------------------------------------------
+# ✅ BGM (전투 시작/종료에 맞춰 재생/정지)
+# -------------------------------------------------
+battle_bgm = None
+BATTLE_BGM_FILE = "battle.wav"  # ✅ play_mode.py와 같은 폴더에 넣기
+BGM_VOLUME = 64                 # 0~128
+
+# -------------------------------------------------
 # 라운드 / UI 상수
 # -------------------------------------------------
 ROUND_TIME = 120.0
@@ -180,6 +187,32 @@ def _load_image_candidates(base_name):
             pass
     print(f"❌ IMAGE LOAD FAIL: {base_name} (경로={ASSET_DIR}, 파일명 확인)")
     return None
+
+# -------------------------------------------------
+# ✅ BGM 유틸
+# -------------------------------------------------
+def _start_bgm():
+    global battle_bgm
+    if battle_bgm:
+        try:
+            battle_bgm.set_volume(BGM_VOLUME)
+        except:
+            pass
+        try:
+            battle_bgm.repeat_play()
+        except:
+            try:
+                battle_bgm.play()
+            except:
+                pass
+
+def _stop_bgm():
+    global battle_bgm
+    if battle_bgm:
+        try:
+            battle_bgm.stop()
+        except:
+            pass
 
 
 # -------------------------------------------------
@@ -487,6 +520,7 @@ def init():
     global digit_images, round_start_time
     global img_win, img_lose, img_draw
     global result_state, result_start_time
+    global battle_bgm
 
     print("✅ play_mode.py init() 실행됨")
     result_state = None
@@ -561,14 +595,25 @@ def init():
     img_lose = _load_image_candidates('lose')
     img_draw = _load_image_candidates('draw')
 
+    # ✅ 전투 BGM 로드 & 재생 (battle.wav)
+    try:
+        battle_bgm = load_music(os.path.join(ASSET_DIR, BATTLE_BGM_FILE))
+        print(f"✅ BGM LOADED: {BATTLE_BGM_FILE}")
+        _start_bgm()
+    except:
+        battle_bgm = None
+        print(f"⚠️ BGM LOAD FAIL: {BATTLE_BGM_FILE} (경로/파일명/wav 지원 확인)")
+
     round_start_time = get_time()
 
 
 def finish():
+    _stop_bgm()  # ✅ 종료 시 확실히 정지
     global background, player, enemy, ai
     global ui_hp_frame, ui_sp_frame, ui_hp_fill, ui_sp_fill, ui_timer_bg, digit_images
     global img_win, img_lose, img_draw
     global result_state, result_start_time
+    global battle_bgm
 
     background = None
     player = None
@@ -588,6 +633,8 @@ def finish():
 
     result_state = None
     result_start_time = 0.0
+
+    battle_bgm = None
 
 
 # -------------------------------------------------
@@ -630,6 +677,7 @@ def update():
     if res is not None:
         result_state = res
         result_start_time = get_time()
+        _stop_bgm()  # ✅ 결과 뜨는 순간 즉시 BGM 정지
         print(f"✅ RESULT = {result_state} (3초 후 종료)")
 
 
@@ -711,7 +759,7 @@ def draw_hp_sp_bar(fighter, side):
             desired_l = full_right - cur_w
             desired_r = full_right
 
-        # ✅ [추가1] HP가 남아있는데 OFFSET 때문에 바가 프레임 밖으로 완전히 사라지는 착시 방지
+        # ✅ [추가] HP가 남아있는데도 바가 완전 사라지는 착시 방지 + 1px 보장
         if desired_r <= hp_inner_left:
             shift = (hp_inner_left + 1) - desired_r
             desired_l += shift
@@ -721,22 +769,18 @@ def draw_hp_sp_bar(fighter, side):
             desired_l += shift
             desired_r += shift
 
-        # ✅ 프레임 안쪽만 보이게 수학적 클리핑
         draw_l = max(desired_l, hp_inner_left)
         draw_r = min(desired_r, hp_inner_right)
         draw_w = draw_r - draw_l
         if draw_w <= 0:
             return
 
-        # ✅ [추가2] 핵심: draw_w가 1보다 작으면 int(draw_w)=0이 되어 "아예 안 그려지는" 문제 발생
-        # HP가 남아 있으면 최소 1px은 보이게 보정
         dst_w = max(1, int(draw_w))
 
         src_full_w = img.w
         src_h = img.h
         src_w = max(1, int(src_full_w * hp_ratio))
 
-        # draw 구간이 desired 구간에서 어느 부분인지(0~1)
         u0 = (draw_l - desired_l) / cur_w
         u1 = (draw_r - desired_l) / cur_w
         u0 = max(0.0, min(1.0, u0))
@@ -916,8 +960,10 @@ def handle_events():
     events = get_events()
     for e in events:
         if e.type == SDL_QUIT:
+            _stop_bgm()
             game_framework.quit()
         elif e.type == SDL_KEYDOWN and e.key == SDLK_ESCAPE:
+            _stop_bgm()
             game_framework.quit()
 
         # 결과 화면이면 입력 무시
