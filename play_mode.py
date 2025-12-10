@@ -4,6 +4,7 @@ from pico2d import *
 import game_framework
 import random
 import os
+import wave  # ✅ 추가: wav 길이 계산용
 
 from Keroro import Keroro
 from Dororo import Dororo
@@ -29,9 +30,7 @@ ai = None
 
 selected_character = 0
 
-# -------------------------------------------------
-# ✅ Kururu 선택/등장 금지 (플레이어/AI 둘 다)
-# -------------------------------------------------
+
 ALL_CHARACTERS = ['Dororo', 'Tamama', 'Keroro', 'Giroro', 'Kururu']
 BANNED_CHARACTERS = {'Kururu'}
 CHARACTERS = [c for c in ALL_CHARACTERS if c not in BANNED_CHARACTERS]
@@ -60,8 +59,13 @@ img_draw = None
 # ✅ BGM (전투 시작/종료에 맞춰 재생/정지)
 # -------------------------------------------------
 battle_bgm = None
-BATTLE_BGM_FILE = "battle.wav"  # ✅ play_mode.py와 같은 폴더에 넣기
-BGM_VOLUME = 64                 # 0~128
+battle_bgm_type = None         # 'music' or 'wav'
+BATTLE_BGM_FILE = "battle.wav" # ✅ play_mode.py와 같은 폴더에 넣기
+BGM_VOLUME = 90                # 0~128
+
+# ✅ wav 루프용(중요)
+battle_bgm_duration = 0.0       # wav 길이(초)
+battle_bgm_last_play_time = 0.0 # 마지막 재생 시각
 
 # -------------------------------------------------
 # 라운드 / UI 상수
@@ -188,16 +192,35 @@ def _load_image_candidates(base_name):
     print(f"❌ IMAGE LOAD FAIL: {base_name} (경로={ASSET_DIR}, 파일명 확인)")
     return None
 
+
 # -------------------------------------------------
-# ✅ BGM 유틸
+# ✅ BGM 유틸 (여기가 핵심)
 # -------------------------------------------------
+def _get_wav_duration_seconds(path):
+    # wav 파일 길이(초) 계산
+    try:
+        with wave.open(path, 'rb') as wf:
+            frames = wf.getnframes()
+            rate = wf.getframerate()
+            if rate <= 0:
+                return 0.0
+            return frames / float(rate)
+    except:
+        return 0.0
+
 def _start_bgm():
-    global battle_bgm
-    if battle_bgm:
-        try:
-            battle_bgm.set_volume(BGM_VOLUME)
-        except:
-            pass
+    global battle_bgm, battle_bgm_type, battle_bgm_last_play_time
+
+    if not battle_bgm:
+        return
+
+    try:
+        battle_bgm.set_volume(BGM_VOLUME)
+    except:
+        pass
+
+    # music이면 repeat_play()로 무한 반복
+    if battle_bgm_type == 'music':
         try:
             battle_bgm.repeat_play()
         except:
@@ -206,13 +229,71 @@ def _start_bgm():
             except:
                 pass
 
-def _stop_bgm():
-    global battle_bgm
-    if battle_bgm:
+    # wav면 1회 재생(루프는 update에서 계속)
+    elif battle_bgm_type == 'wav':
         try:
-            battle_bgm.stop()
+            battle_bgm.play()
+            battle_bgm_last_play_time = get_time()
         except:
             pass
+
+def _stop_bgm():
+    global battle_bgm, battle_bgm_last_play_time
+    if not battle_bgm:
+        return
+    try:
+        battle_bgm.stop()
+    except:
+        pass
+    battle_bgm_last_play_time = 0.0
+
+def _load_and_play_bgm():
+    """
+    ✅ 핵심:
+    - load_music 실패 시 load_wav로 재시도
+    - wav면 길이를 구해서 update에서 자동 루프
+    - 파일명 후보도 함께 시도
+    """
+    global battle_bgm, battle_bgm_type, battle_bgm_duration, battle_bgm_last_play_time
+
+    candidates = [
+        BATTLE_BGM_FILE,
+        BATTLE_BGM_FILE.lower(),
+        BATTLE_BGM_FILE.upper(),
+        "battle.wav",
+        "BATTLE.WAV",
+    ]
+
+    for fname in candidates:
+        path = os.path.join(ASSET_DIR, fname)
+
+        # 1) music 시도
+        try:
+            battle_bgm = load_music(path)
+            battle_bgm_type = 'music'
+            battle_bgm_duration = 0.0
+            battle_bgm_last_play_time = 0.0
+            print(f"✅ BGM LOADED as MUSIC: {path}")
+            _start_bgm()
+            return
+        except:
+            battle_bgm = None
+            battle_bgm_type = None
+
+        # 2) wav 시도
+        try:
+            battle_bgm = load_wav(path)
+            battle_bgm_type = 'wav'
+            battle_bgm_duration = _get_wav_duration_seconds(path)
+            battle_bgm_last_play_time = 0.0
+            print(f"✅ BGM LOADED as WAV: {path} (duration={battle_bgm_duration:.2f}s)")
+            _start_bgm()
+            return
+        except:
+            battle_bgm = None
+            battle_bgm_type = None
+
+    print(f"⚠️ BGM LOAD FAIL: {BATTLE_BGM_FILE} (경로={ASSET_DIR}, 파일명/확장자 확인)")
 
 
 # -------------------------------------------------
@@ -520,7 +601,6 @@ def init():
     global digit_images, round_start_time
     global img_win, img_lose, img_draw
     global result_state, result_start_time
-    global battle_bgm
 
     print("✅ play_mode.py init() 실행됨")
     result_state = None
@@ -590,19 +670,13 @@ def init():
     except:
         digit_images[':'] = None
 
-    # ✅ 결과 이미지 로드
+    # 결과 이미지 로드
     img_win  = _load_image_candidates('win')
     img_lose = _load_image_candidates('lose')
     img_draw = _load_image_candidates('draw')
 
-    # ✅ 전투 BGM 로드 & 재생 (battle.wav)
-    try:
-        battle_bgm = load_music(os.path.join(ASSET_DIR, BATTLE_BGM_FILE))
-        print(f"✅ BGM LOADED: {BATTLE_BGM_FILE}")
-        _start_bgm()
-    except:
-        battle_bgm = None
-        print(f"⚠️ BGM LOAD FAIL: {BATTLE_BGM_FILE} (경로/파일명/wav 지원 확인)")
+    # ✅ 전투 BGM 로드 & 재생 (music 실패하면 wav로 재시도)
+    _load_and_play_bgm()
 
     round_start_time = get_time()
 
@@ -613,7 +687,8 @@ def finish():
     global ui_hp_frame, ui_sp_frame, ui_hp_fill, ui_sp_fill, ui_timer_bg, digit_images
     global img_win, img_lose, img_draw
     global result_state, result_start_time
-    global battle_bgm
+    global battle_bgm, battle_bgm_type
+    global battle_bgm_duration, battle_bgm_last_play_time
 
     background = None
     player = None
@@ -635,6 +710,9 @@ def finish():
     result_start_time = 0.0
 
     battle_bgm = None
+    battle_bgm_type = None
+    battle_bgm_duration = 0.0
+    battle_bgm_last_play_time = 0.0
 
 
 # -------------------------------------------------
@@ -642,12 +720,24 @@ def finish():
 # -------------------------------------------------
 def update():
     global result_state, result_start_time
+    global battle_bgm, battle_bgm_type, battle_bgm_duration, battle_bgm_last_play_time
 
     # 결과 화면 중이면 3초 후 종료
     if result_state is not None:
         if get_time() - result_start_time >= RESULT_SHOW_TIME:
             game_framework.quit()
         return
+
+    # ✅ wav일 때: 길이 기반 자동 루프 (전투 중 계속)
+    if battle_bgm and battle_bgm_type == 'wav' and battle_bgm_duration > 0.1:
+        if battle_bgm_last_play_time <= 0.0:
+            battle_bgm_last_play_time = get_time()
+        elif get_time() - battle_bgm_last_play_time >= (battle_bgm_duration - 0.05):
+            try:
+                battle_bgm.play()
+            except:
+                pass
+            battle_bgm_last_play_time = get_time()
 
     if player:
         player.update()
@@ -759,7 +849,7 @@ def draw_hp_sp_bar(fighter, side):
             desired_l = full_right - cur_w
             desired_r = full_right
 
-        # ✅ [추가] HP가 남아있는데도 바가 완전 사라지는 착시 방지 + 1px 보장
+        # ✅ HP 남아있는데 바가 완전 사라지는 착시 방지(1px 보장)
         if desired_r <= hp_inner_left:
             shift = (hp_inner_left + 1) - desired_r
             desired_l += shift
@@ -830,10 +920,7 @@ def draw_hp_sp_bar(fighter, side):
         src_h      = img.h
         src_w      = max(1, int(src_full_w * sp_ratio))
 
-        if side == 'left':
-            sp_anchor_left = True
-        else:
-            sp_anchor_left = False
+        sp_anchor_left = (side == 'left')
 
         if sp_anchor_left:
             src_left = 0
