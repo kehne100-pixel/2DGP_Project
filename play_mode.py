@@ -3,6 +3,7 @@
 from pico2d import *
 import game_framework
 import random
+import os
 
 from Keroro import Keroro
 from Dororo import Dororo
@@ -48,7 +49,7 @@ digit_images = {}
 # -------------------------------------------------
 # 결과 화면 (WIN / LOSE / DRAW)
 # -------------------------------------------------
-RESULT_SHOW_TIME = 5.0
+RESULT_SHOW_TIME = 3.0
 result_state = None          # None / 'WIN' / 'LOSE' / 'DRAW'
 result_start_time = 0.0
 img_win = None
@@ -81,7 +82,7 @@ RIGHT_HP_FILL_W_MAX = 880
 HP_FILL_H = 30
 
 # ================= HP 주황바(채우기) 위치 미세조정 =================
-# +면 안쪽(가운데 방향)으로, -면 바깥쪽으로 이동
+# ✅ 이 값으로 "주황바 위치만" 이동 가능
 LEFT_HP_FILL_OFFSET_X  = -110
 RIGHT_HP_FILL_OFFSET_X = 180
 HP_FILL_OFFSET_Y = 0
@@ -101,7 +102,7 @@ SP_INNER_MARGIN_X = 10
 SP_INNER_MARGIN_Y = 4
 
 LEFT_SP_FILL_W_MAX  = 380
-RIGHT_SP_FILL_W_MAX = 380
+RIGHT_SP_FILL_W_MAX = 480
 
 SP_FILL_H = 60
 
@@ -133,8 +134,16 @@ def set_selected_index(index):
 
 
 # -------------------------------------------------
-# (유틸) hp/sp 이름이 다른 경우 대비
+# 유틸
 # -------------------------------------------------
+ASSET_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def _to_number(v, default=0.0):
+    try:
+        return float(v)
+    except:
+        return float(default)
+
 def _get_attr_any(obj, names, default=None):
     for n in names:
         if hasattr(obj, n):
@@ -147,6 +156,30 @@ def _set_attr_any(obj, names, value):
             setattr(obj, n, value)
             return True
     return False
+
+def _load_image_candidates(base_name):
+    """
+    play_mode.py 위치 기준으로 이미지 로드.
+    win/lose/draw 같이 파일명 대소문자/확장자 후보를 전부 시도.
+    """
+    candidates = [
+        base_name + ".png",
+        base_name,
+        base_name.upper() + ".png",
+        base_name.upper(),
+        base_name.capitalize() + ".png",
+        base_name.capitalize(),
+    ]
+    for name in candidates:
+        path = os.path.join(ASSET_DIR, name)
+        try:
+            img = load_image(path)
+            print(f"✅ IMAGE LOADED: {path}")
+            return img
+        except:
+            pass
+    print(f"❌ IMAGE LOAD FAIL: {base_name} (경로={ASSET_DIR}, 파일명 확인)")
+    return None
 
 
 # -------------------------------------------------
@@ -179,7 +212,7 @@ def create_fighter(name, is_left=True):
 
     c.dir = 0
 
-    # ✅ 핵심: 이게 없으면 "몇 대 맞아야 닳는" 현상이 생길 수 있음
+    # 공격 히트 1회 제한 플래그
     c.attack_hit_done = False
     c._skill_paid_state = None
 
@@ -187,7 +220,7 @@ def create_fighter(name, is_left=True):
 
 
 # -------------------------------------------------
-# 몸통 충돌 (서로 살짝 밀치기)
+# 몸통 충돌
 # -------------------------------------------------
 def resolve_body_collision():
     global player, enemy
@@ -202,11 +235,9 @@ def resolve_body_collision():
         return
 
     distance = abs(dx)
-
     if distance < min_distance:
         overlap = min_distance - distance
         push = overlap / 2.0
-
         if dx > 0:
             player.x -= push
             enemy.x += push
@@ -221,7 +252,6 @@ def resolve_body_collision():
 def clamp_fighters():
     STAGE_LEFT = 60
     STAGE_RIGHT = W - 60
-
     if player:
         player.x = max(STAGE_LEFT, min(STAGE_RIGHT, player.x))
     if enemy:
@@ -234,14 +264,10 @@ def clamp_fighters():
 def aabb_intersect(box1, box2):
     l1, b1, r1, t1 = box1
     l2, b2, r2, t2 = box2
-    if r1 < l2:
-        return False
-    if r2 < l1:
-        return False
-    if t1 < b2:
-        return False
-    if t2 < b1:
-        return False
+    if r1 < l2: return False
+    if r2 < l1: return False
+    if t1 < b2: return False
+    if t2 < b1: return False
     return True
 
 
@@ -265,7 +291,6 @@ def reset_attack_flag_if_needed(f):
     if cur in active_states:
         return
 
-    # 보험: 이름에 ATTACK/SKILL이 들어가면 공격 중으로 간주
     name = ""
     try:
         name = cur.__name__
@@ -335,14 +360,14 @@ def pay_skill_cost_on_enter(f):
             cost = SKILL3_COST
 
     sp = _get_attr_any(f, ['sp', 'mp', 'mana'], 0)
-    sp = max(0, sp - cost)
+    sp = max(0, _to_number(sp, 0) - cost)
     _set_attr_any(f, ['sp', 'mp', 'mana'], sp)
 
     f._skill_paid_state = cur
 
 
 # -------------------------------------------------
-# 전투 판정 (HP 즉시 감소 보장)
+# 전투 판정
 # -------------------------------------------------
 def handle_combat(attacker, defender):
     if not hasattr(attacker, 'get_attack_hitbox'):
@@ -395,24 +420,24 @@ def handle_combat(attacker, defender):
             elif "ATTACK" in up:
                 gain_sp = True
 
-    hp_before = _get_attr_any(defender, ['hp', 'cur_hp'], None)
+    hp_before = _to_number(_get_attr_any(defender, ['hp', 'cur_hp', 'HP'], 0), 0)
 
     if hasattr(defender, 'take_hit'):
         defender.take_hit(damage, attacker.face_dir)
 
-    hp_after = _get_attr_any(defender, ['hp', 'cur_hp'], None)
+    hp_after = _to_number(_get_attr_any(defender, ['hp', 'cur_hp', 'HP'], hp_before), hp_before)
 
-    # take_hit이 hp를 안 깎으면 여기서 강제로 감소
-    if hp_before is not None and (hp_after is None or hp_after == hp_before):
+    # take_hit이 hp를 안 깎는 경우 대비
+    if hp_after == hp_before:
         new_hp = max(0, hp_before - damage)
-        _set_attr_any(defender, ['hp', 'cur_hp'], new_hp)
+        _set_attr_any(defender, ['hp', 'cur_hp', 'HP'], new_hp)
 
     # 평타 적중 시 SP 증가
     if gain_sp:
         sp = _get_attr_any(attacker, ['sp', 'mp', 'mana'], None)
         max_sp = _get_attr_any(attacker, ['max_sp', 'max_mp', 'max_mana'], None)
         if sp is not None and max_sp is not None:
-            sp = min(max_sp, sp + SP_GAIN_ON_HIT)
+            sp = min(_to_number(max_sp, 0), _to_number(sp, 0) + SP_GAIN_ON_HIT)
             _set_attr_any(attacker, ['sp', 'mp', 'mana'], sp)
 
     attacker.attack_hit_done = True
@@ -437,10 +462,9 @@ def check_game_result():
     if player is None or enemy is None:
         return None
 
-    p_hp = _get_attr_any(player, ['hp', 'cur_hp'], 0)
-    e_hp = _get_attr_any(enemy,  ['hp', 'cur_hp'], 0)
+    p_hp = _to_number(_get_attr_any(player, ['hp', 'cur_hp', 'HP'], 1), 1)
+    e_hp = _to_number(_get_attr_any(enemy,  ['hp', 'cur_hp', 'HP'], 1), 1)
 
-    # KO 우선
     if p_hp <= 0 and e_hp <= 0:
         return 'DRAW'
     if e_hp <= 0:
@@ -448,7 +472,6 @@ def check_game_result():
     if p_hp <= 0:
         return 'LOSE'
 
-    # 시간 종료 시: 요구대로 무조건 DRAW
     if get_remaining_time() <= 0:
         return 'DRAW'
 
@@ -465,18 +488,19 @@ def init():
     global img_win, img_lose, img_draw
     global result_state, result_start_time
 
+    print("✅ play_mode.py init() 실행됨")
     result_state = None
     result_start_time = 0.0
 
     # 배경
-    try:
-        background = load_image('Keroro_background.png')
-        print("✅ Keroro_background.png 로드 완료")
-    except:
-        print("⚠️ Keroro_background.png 를 찾지 못했습니다.")
-        background = None
+    background = _load_image_candidates("Keroro_background")
+    if background is None:
+        try:
+            background = load_image(os.path.join(ASSET_DIR, "Keroro_background.png"))
+        except:
+            background = None
 
-    # 캐릭터 생성 (Kururu 제외된 CHARACTERS 사용)
+    # 캐릭터 생성
     player_name = CHARACTERS[selected_character % len(CHARACTERS)]
     player = create_fighter(player_name, is_left=True)
     print(f"✅ Player1 : {player_name}")
@@ -486,16 +510,14 @@ def init():
     enemy = create_fighter(enemy_name, is_left=False)
     print(f"✅ Enemy (AI) : {enemy_name}")
 
-    # AI
     ai = FighterAI(enemy, player)
 
-    # 카메라
     camera.init()
     print("✅ Camera init 완료")
 
     # UI 이미지
     try:
-        ui_hp_frame = load_image('ui_hp_frame.png')
+        ui_hp_frame = load_image(os.path.join(ASSET_DIR, 'ui_hp_frame.png'))
         ui_sp_frame = ui_hp_frame
     except:
         ui_hp_frame = None
@@ -503,19 +525,19 @@ def init():
         print("⚠️ ui_hp_frame.png 로드 실패")
 
     try:
-        ui_hp_fill = load_image('ui_hp_fill.png')
+        ui_hp_fill = load_image(os.path.join(ASSET_DIR, 'ui_hp_fill.png'))
     except:
         ui_hp_fill = None
         print("⚠️ ui_hp_fill.png 로드 실패")
 
     try:
-        ui_sp_fill = load_image('ui_sp_fill.png')
+        ui_sp_fill = load_image(os.path.join(ASSET_DIR, 'ui_sp_fill.png'))
     except:
         ui_sp_fill = None
         print("⚠️ ui_sp_fill.png 로드 실패")
 
     try:
-        ui_timer_bg = load_image('ui_timer.png')
+        ui_timer_bg = load_image(os.path.join(ASSET_DIR, 'ui_timer.png'))
     except:
         ui_timer_bg = None
         print("⚠️ ui_timer.png 로드 실패")
@@ -525,33 +547,20 @@ def init():
     for ch in '0123456789':
         fname = f'timer{ch}.png'
         try:
-            digit_images[ch] = load_image(fname)
+            digit_images[ch] = load_image(os.path.join(ASSET_DIR, fname))
         except:
             digit_images[ch] = None
-            print(f"⚠️ {fname} 로드 실패")
 
     try:
-        digit_images[':'] = load_image('timer_colon.png')
+        digit_images[':'] = load_image(os.path.join(ASSET_DIR, 'timer_colon.png'))
     except:
         digit_images[':'] = None
-        print("⚠️ timer_colon.png 로드 실패")
 
-    # ✅ 결과 이미지 로드 (win.png / lose.png / draw.png)
-    def _load_result_img(base):
-        try:
-            return load_image(base + '.png')
-        except:
-            try:
-                return load_image(base)
-            except:
-                print(f"⚠️ {base}.png 로드 실패")
-                return None
+    # ✅ 결과 이미지 로드
+    img_win  = _load_image_candidates('win')
+    img_lose = _load_image_candidates('lose')
+    img_draw = _load_image_candidates('draw')
 
-    img_win  = _load_result_img('win')
-    img_lose = _load_result_img('lose')
-    img_draw = _load_result_img('draw')
-
-    # 라운드 시작 시간
     round_start_time = get_time()
 
 
@@ -585,10 +594,9 @@ def finish():
 # 매 프레임 업데이트
 # -------------------------------------------------
 def update():
-    global player, enemy, ai, background
     global result_state, result_start_time
 
-    # ✅ 결과 화면 중이면: 5초 후 자동 종료
+    # 결과 화면 중이면 3초 후 종료
     if result_state is not None:
         if get_time() - result_start_time >= RESULT_SHOW_TIME:
             game_framework.quit()
@@ -601,7 +609,6 @@ def update():
     if ai:
         ai.update()
 
-    # ✅ "몇 대 맞아야 닳는" 현상 해결 + 스킬 SP 감소
     if player:
         reset_attack_flag_if_needed(player)
         pay_skill_cost_on_enter(player)
@@ -618,15 +625,16 @@ def update():
 
     camera.update(player, enemy, background)
 
-    # ✅ 승패 판정
+    # 승패 판정
     res = check_game_result()
     if res is not None:
         result_state = res
         result_start_time = get_time()
+        print(f"✅ RESULT = {result_state} (3초 후 종료)")
 
 
 # -------------------------------------------------
-# HP / SP UI 그리기 (네 UI 그대로)
+# HP / SP UI 그리기 (OFFSET으로 "위치만" 이동 가능 버전)
 # -------------------------------------------------
 def draw_hp_sp_bar(fighter, side):
     global ui_hp_frame, ui_sp_frame, ui_hp_fill, ui_sp_fill
@@ -634,10 +642,10 @@ def draw_hp_sp_bar(fighter, side):
     if fighter is None:
         return
 
-    max_hp = getattr(fighter, 'max_hp', 100)
-    hp     = getattr(fighter, 'hp', max_hp)
-    max_sp = getattr(fighter, 'max_sp', 100)
-    sp     = getattr(fighter, 'sp', 0)
+    max_hp = _to_number(getattr(fighter, 'max_hp', 100), 100)
+    hp     = _to_number(getattr(fighter, 'hp', max_hp), max_hp)
+    max_sp = _to_number(getattr(fighter, 'max_sp', 100), 100)
+    sp     = _to_number(getattr(fighter, 'sp', 0), 0)
 
     hp_ratio = 0.0 if max_hp <= 0 else max(0.0, min(1.0, hp / max_hp))
     sp_ratio = 0.0 if max_sp <= 0 else max(0.0, min(1.0, sp / max_sp))
@@ -654,6 +662,7 @@ def draw_hp_sp_bar(fighter, side):
         sp_frame_w     = LEFT_SP_FRAME_W
         sp_fill_w_max  = LEFT_SP_FILL_W_MAX
 
+        offset_x = LEFT_HP_FILL_OFFSET_X
         anchor_left = True
     else:
         hp_base_x      = RIGHT_HP_X
@@ -664,6 +673,7 @@ def draw_hp_sp_bar(fighter, side):
         sp_frame_w     = RIGHT_SP_FRAME_W
         sp_fill_w_max  = RIGHT_SP_FILL_W_MAX
 
+        offset_x = RIGHT_HP_FILL_OFFSET_X
         anchor_left = False
 
     # HP 프레임
@@ -672,43 +682,28 @@ def draw_hp_sp_bar(fighter, side):
 
     frame_left  = hp_base_x - hp_frame_w / 2
     frame_right = hp_base_x + hp_frame_w / 2
-
     hp_inner_left  = frame_left  + HP_INNER_MARGIN_X
     hp_inner_right = frame_right - HP_INNER_MARGIN_X
 
-    # 주황바 전체 영역(오프셋 적용)
+    # ✅ OFFSET으로 주황바 "전체 기준 위치" 이동 (clamp 금지)
     if side == 'left':
-        hp_bar_left  = hp_inner_left + LEFT_HP_FILL_OFFSET_X
-        hp_bar_right = hp_bar_left + hp_fill_w_max
+        full_left  = hp_inner_left + offset_x
+        full_right = full_left + hp_fill_w_max
+        anchor_left = True
     else:
-        hp_bar_right = hp_inner_right - RIGHT_HP_FILL_OFFSET_X
-        hp_bar_left  = hp_bar_right - hp_fill_w_max
+        full_right = hp_inner_right + offset_x
+        full_left  = full_right - hp_fill_w_max
+        anchor_left = False
 
-    # 안전 클램프(프레임 안쪽)
-    hp_bar_left  = max(hp_inner_left, hp_bar_left)
-    hp_bar_right = min(hp_inner_right, hp_bar_right)
-
-    # HP 채우기(주황)
+    # ----------------- HP 채우기(주황) -----------------
     if ui_hp_fill and hp_ratio > 0.0:
         img = ui_hp_fill
 
-        clip_l = hp_inner_left
-        clip_r = hp_inner_right
-
-        if side == 'left':
-            full_left = hp_inner_left + LEFT_HP_FILL_OFFSET_X
-            full_right = full_left + hp_fill_w_max
-            anchor_left = True
-        else:
-            full_right = hp_inner_right + RIGHT_HP_FILL_OFFSET_X
-            full_left = full_right - hp_fill_w_max
-            anchor_left = False
-
-        full_w = float(hp_fill_w_max)
-        cur_w = full_w * hp_ratio
+        cur_w = float(hp_fill_w_max) * hp_ratio
         if cur_w <= 0:
             return
 
+        # 앵커 기준으로 "실제로 놓일 구간" 계산
         if anchor_left:
             desired_l = full_left
             desired_r = full_left + cur_w
@@ -716,16 +711,32 @@ def draw_hp_sp_bar(fighter, side):
             desired_l = full_right - cur_w
             desired_r = full_right
 
-        draw_l = max(desired_l, clip_l)
-        draw_r = min(desired_r, clip_r)
+        # ✅ [추가1] HP가 남아있는데 OFFSET 때문에 바가 프레임 밖으로 완전히 사라지는 착시 방지
+        if desired_r <= hp_inner_left:
+            shift = (hp_inner_left + 1) - desired_r
+            desired_l += shift
+            desired_r += shift
+        elif desired_l >= hp_inner_right:
+            shift = (hp_inner_right - 1) - desired_l
+            desired_l += shift
+            desired_r += shift
+
+        # ✅ 프레임 안쪽만 보이게 수학적 클리핑
+        draw_l = max(desired_l, hp_inner_left)
+        draw_r = min(desired_r, hp_inner_right)
         draw_w = draw_r - draw_l
         if draw_w <= 0:
             return
+
+        # ✅ [추가2] 핵심: draw_w가 1보다 작으면 int(draw_w)=0이 되어 "아예 안 그려지는" 문제 발생
+        # HP가 남아 있으면 최소 1px은 보이게 보정
+        dst_w = max(1, int(draw_w))
 
         src_full_w = img.w
         src_h = img.h
         src_w = max(1, int(src_full_w * hp_ratio))
 
+        # draw 구간이 desired 구간에서 어느 부분인지(0~1)
         u0 = (draw_l - desired_l) / cur_w
         u1 = (draw_r - desired_l) / cur_w
         u0 = max(0.0, min(1.0, u0))
@@ -746,10 +757,10 @@ def draw_hp_sp_bar(fighter, side):
             int(src_left), 0,
             int(src_clip_w), int(src_h),
             int(dst_cx), int(dst_y),
-            int(draw_w), int(HP_FILL_H)
+            int(dst_w), int(HP_FILL_H)
         )
 
-    # SP 프레임
+    # ----------------- SP 프레임 -----------------
     if ui_sp_frame is None:
         ui_sp_frame = ui_hp_frame
 
@@ -758,14 +769,13 @@ def draw_hp_sp_bar(fighter, side):
 
     sp_frame_left  = sp_base_x - sp_frame_w / 2
     sp_frame_right = sp_base_x + sp_frame_w / 2
-
     sp_inner_left  = sp_frame_left  + SP_INNER_MARGIN_X
     sp_inner_right = sp_frame_right - SP_INNER_MARGIN_X
 
     sp_inner_width = sp_inner_right - sp_inner_left
     sp_draw_w_max  = min(sp_fill_w_max, sp_inner_width)
 
-    # SP 채우기(파랑)
+    # ----------------- SP 채우기(파랑) -----------------
     if ui_sp_fill and sp_ratio > 0.0:
         img = ui_sp_fill
 
@@ -776,7 +786,12 @@ def draw_hp_sp_bar(fighter, side):
         src_h      = img.h
         src_w      = max(1, int(src_full_w * sp_ratio))
 
-        if anchor_left:
+        if side == 'left':
+            sp_anchor_left = True
+        else:
+            sp_anchor_left = False
+
+        if sp_anchor_left:
             src_left = 0
             dst_cx = sp_inner_left + cur_w / 2
         else:
@@ -848,14 +863,10 @@ def draw():
         bx = int(cx - src_w / 2)
         by = int(cy - src_h / 2)
 
-        if bx < 0:
-            bx = 0
-        if by < 0:
-            by = 0
-        if bx + src_w > background.w:
-            bx = background.w - src_w
-        if by + src_h > background.h:
-            by = background.h - src_h
+        if bx < 0: bx = 0
+        if by < 0: by = 0
+        if bx + src_w > background.w: bx = background.w - src_w
+        if by + src_h > background.h: by = background.h - src_h
 
         src_center_x = bx + src_w // 2
         src_center_y = by + src_h // 2
@@ -879,7 +890,7 @@ def draw():
     draw_hp_sp_bar(enemy, 'right')
     draw_timer_ui()
 
-    # ✅ 결과 화면 오버레이(정중앙)
+    # 결과 화면 오버레이(정중앙)
     if result_state is not None:
         img = None
         if result_state == 'WIN':
@@ -891,6 +902,8 @@ def draw():
 
         if img:
             img.draw(W // 2, H // 2)
+        else:
+            draw_text(W // 2 - 40, H // 2, result_state)
 
     update_canvas()
 
@@ -907,7 +920,7 @@ def handle_events():
         elif e.type == SDL_KEYDOWN and e.key == SDLK_ESCAPE:
             game_framework.quit()
 
-        # ✅ 결과 화면이면 조작 무시
+        # 결과 화면이면 입력 무시
         if result_state is not None:
             continue
 
