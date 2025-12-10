@@ -59,16 +59,23 @@ LEFT_HP_X  = 290          # 내 HP 프레임 중심 X
 RIGHT_HP_X = W - 230      # 적 HP 프레임 중심 X
 
 # 프레임 안쪽에서 주황바가 들어갈 여백
-HP_INNER_MARGIN_X = 10    # 프레임에서 좌우로 띄울 여백 (원하면 조절)
+HP_INNER_MARGIN_X = 5    # 프레임에서 좌우로 띄울 여백 (원하면 조절)
 HP_INNER_MARGIN_Y = 12    # (필요하면 사용)
 
 # ================ HP 채우기(주황 바) 크기 ================
-# ★ 프레임 "안쪽 길이"와 딱 맞게 설정 (프레임폭 - 양쪽 여백)
-LEFT_HP_FILL_W_MAX  = LEFT_HP_FRAME_W  - HP_INNER_MARGIN_X * 2
-RIGHT_HP_FILL_W_MAX = RIGHT_HP_FRAME_W - HP_INNER_MARGIN_X * 2
+LEFT_HP_FILL_W_MAX  = 880
+RIGHT_HP_FILL_W_MAX = 880
 
 # ★ 주황바 세로 높이 (프레임과 독립)
 HP_FILL_H = 30
+
+# ================= HP 주황바(채우기) 위치 미세조정 =================
+# +면 안쪽(가운데 방향)으로, -면 바깥쪽으로 이동
+LEFT_HP_FILL_OFFSET_X  = -110
+RIGHT_HP_FILL_OFFSET_X = 180
+
+# Y도 필요하면 조절
+HP_FILL_OFFSET_Y = 0
 
 # ================= SP 프레임/바 위치/크기 =================
 SP_OFFSET_Y = 22          # HP 아래로 얼마나 내릴지 (HP_FRAME_Y - SP_OFFSET_Y)
@@ -198,6 +205,58 @@ def aabb_intersect(box1, box2):
     if t2 < b1:
         return False
     return True
+
+def _reset_attack_hit_done_if_needed(f):
+    """공격 상태가 끝났는데도 attack_hit_done이 True로 남아서 다음 공격이 안맞는 문제 방지"""
+    if not f or not hasattr(f, 'state_machine'):
+        return
+    cur = getattr(f.state_machine, 'cur_state', None)
+
+    active = (
+        getattr(f, 'ATTACK', None),
+        getattr(f, 'ATTACK2', None),
+        getattr(f, 'SKILL', None),
+        getattr(f, 'SKILL2', None),
+        getattr(f, 'SKILL3', None),
+    )
+    if cur not in active and hasattr(f, 'attack_hit_done'):
+        f.attack_hit_done = False
+
+
+def _pay_skill_cost_once(f):
+    """
+    스킬 상태로 '진입'했을 때 SP를 1회만 차감.
+    (스킬이 빗나가도 사용한 순간 SP가 줄어야 하니까)
+    """
+    if not f or not hasattr(f, 'state_machine'):
+        return
+
+    cur = getattr(f.state_machine, 'cur_state', None)
+    s1 = getattr(f, 'SKILL', None)
+    s2 = getattr(f, 'SKILL2', None)
+    s3 = getattr(f, 'SKILL3', None)
+
+    # 스킬 코스트(원하는 값으로 바꿔도 됨)
+    COST1, COST2, COST3 = 20, 35, 50
+
+    # 스킬 상태가 아니면 "지불 완료" 표시 초기화
+    if cur not in (s1, s2, s3):
+        setattr(f, '_skill_paid_state', None)
+        return
+
+    # 이미 같은 스킬 상태에서 한 번 냈으면 또 내지 않음
+    if getattr(f, '_skill_paid_state', None) is cur:
+        return
+
+    # 코스트 결정
+    cost = COST1 if cur is s1 else COST2 if cur is s2 else COST3
+
+    if hasattr(f, 'sp') and hasattr(f, 'max_sp'):
+        # SP가 부족하면 0으로 깎지 말고 그냥 발동을 막고 싶다면,
+        # 여기서 return 시키고 스킬 상태로 못가게 처리해야 함(캐릭터 handle_event쪽 수정 필요).
+        f.sp = max(0, f.sp - cost)
+
+    setattr(f, '_skill_paid_state', cur)
 
 
 def handle_combat(attacker, defender):
@@ -348,7 +407,7 @@ def init():
             digit_images[ch] = None
             print(f"⚠️ {fname} 로드 실패")
 
-    # 콜론 이미지 (timer_colon.png 를 만들어뒀다면 사용)
+    # 콜론 이미지
     try:
         digit_images[':'] = load_image('timer_colon.png')
     except:
@@ -405,6 +464,7 @@ def draw_hp_sp_bar(fighter, side):
     - 각 사이드(왼쪽/오른쪽)에 대해
       HP프레임, HP바, SP프레임, SP바의 위치/크기를 전부 별도로 사용
     - HP바는 프레임 안쪽에서만 길이가 줄어들고, 한쪽 끝(anchor)은 고정
+    - ★ 추가: HP 주황바 영역을 프레임과 분리해서 X 오프셋으로 좌우 이동 가능
     """
     global ui_hp_frame, ui_sp_frame, ui_hp_fill, ui_sp_fill
 
@@ -455,41 +515,95 @@ def draw_hp_sp_bar(fighter, side):
     frame_left  = hp_base_x - hp_frame_w / 2
     frame_right = hp_base_x + hp_frame_w / 2
 
-    # 프레임 안쪽에서 주황 바가 움직일 수 있는 영역
+    # 프레임 안쪽 영역
     hp_inner_left  = frame_left  + HP_INNER_MARGIN_X
     hp_inner_right = frame_right - HP_INNER_MARGIN_X
 
-    # (프레임 안쪽 폭: 참고용, 필요하면 디버깅에 사용 가능)
-    hp_inner_width = hp_inner_right - hp_inner_left
+    # ★ HP 주황바 영역(프레임과 분리) + 오프셋 적용
+    if side == 'left':
+        hp_bar_left  = hp_inner_left + LEFT_HP_FILL_OFFSET_X
+        hp_bar_right = hp_bar_left + hp_fill_w_max
+    else:
+        hp_bar_right = hp_inner_right - RIGHT_HP_FILL_OFFSET_X
+        hp_bar_left  = hp_bar_right - hp_fill_w_max
 
-    # ★ 주황바 최대 길이 = 상단에서 정의한 HP_FILL_W_MAX (프레임 안쪽 길이와 동일)
-    hp_draw_w_max = hp_fill_w_max
+    # 안전 클램프
+    hp_bar_left  = max(hp_inner_left, hp_bar_left)
+    hp_bar_right = min(hp_inner_right, hp_bar_right)
+
+    hp_draw_w_max = max(0, hp_bar_right - hp_bar_left)
 
     # ===================== HP 채우기(주황 바) =====================
     if ui_hp_fill and hp_ratio > 0.0:
         img = ui_hp_fill
 
-        cur_w = hp_draw_w_max * hp_ratio   # 현재 체력에 따른 길이
-        dst_h = HP_FILL_H                  # 프레임과 독립된 높이
+        # 프레임 안쪽(보이는 영역) 경계
+        clip_l = hp_inner_left
+        clip_r = hp_inner_right
 
+        # "주황바 전체(HP 100%)" 기준으로 어디에 둘지(좌/우 각각 오프셋)
+        if side == 'left':
+            full_left = hp_inner_left + LEFT_HP_FILL_OFFSET_X
+            full_right = full_left + hp_fill_w_max
+            anchor_left = True
+        else:
+            full_right = hp_inner_right + RIGHT_HP_FILL_OFFSET_X
+            full_left = full_right - hp_fill_w_max
+            anchor_left = False
+
+        # 현재 HP 비율에 따른 "원래 그리려는" 구간(앵커 기준)
+        full_w = float(hp_fill_w_max)
+        cur_w = full_w * hp_ratio
+        if cur_w <= 0:
+            return
+
+        if anchor_left:
+            desired_l = full_left
+            desired_r = full_left + cur_w
+        else:
+            desired_l = full_right - cur_w
+            desired_r = full_right
+
+        # 프레임 안쪽으로만 보이게 “수학적으로 클리핑”
+        draw_l = max(desired_l, clip_l)
+        draw_r = min(desired_r, clip_r)
+        draw_w = draw_r - draw_l
+        if draw_w <= 0:
+            return
+
+        # 이미지 소스(가로)도 비율만큼 자르기
         src_full_w = img.w
-        src_h      = img.h
-        src_w      = int(src_full_w * hp_ratio)
+        src_h = img.h
+        src_w = int(src_full_w * hp_ratio)
         if src_w < 1:
             src_w = 1
 
+        # draw_l~draw_r가 desired_l~desired_r의 몇 % 구간인지(u0~u1)
+        u0 = (draw_l - desired_l) / cur_w
+        u1 = (draw_r - desired_l) / cur_w
+        u0 = max(0.0, min(1.0, u0))
+        u1 = max(0.0, min(1.0, u1))
+
+        # 왼쪽/오른쪽 앵커에 따라 src 시작점이 달라짐
         if anchor_left:
-            src_left = 0
-            dst_cx = hp_inner_left + cur_w / 2
+            src_seg_left = 0
         else:
-            src_left = src_full_w - src_w
-            dst_cx = hp_inner_right - cur_w / 2
+            src_seg_left = src_full_w - src_w
+
+        src_left = int(src_seg_left + u0 * src_w)
+        src_clip_w = int((u1 - u0) * src_w)
+        if src_clip_w < 1:
+            src_clip_w = 1
+
+        dst_cx = (draw_l + draw_r) / 2
+        dst_h = HP_FILL_H
+        dst_y = hp_y + HP_FILL_OFFSET_Y
 
         img.clip_draw(
             int(src_left), 0,
-            int(src_w), int(src_h),
-            int(dst_cx), int(hp_y),
-            int(cur_w), int(dst_h)
+            int(src_clip_w), int(src_h),
+            int(dst_cx), int(dst_y),
+            int(draw_w), int(dst_h)
         )
 
     # ===================== SP 프레임 =====================
@@ -537,7 +651,7 @@ def draw_hp_sp_bar(fighter, side):
 
 
 # -------------------------------------------------
-# 타이머 UI (네가 주신 버전 유지)
+# 타이머 UI
 # -------------------------------------------------
 def draw_timer_ui():
     global ui_timer_bg, digit_images

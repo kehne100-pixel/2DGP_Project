@@ -100,46 +100,41 @@ def finish():
 # 내부 유틸 (채워진 바 그리기)
 # -----------------------
 def _draw_bar_fill(img, x_left, y_center, width, height, ratio, flip=False, color=(255, 0, 0)):
-    """
-    img     : 채워지는 바 이미지 (없으면 그냥 색 사각형)
-    x_left  : 바의 왼쪽 끝 (화면 좌표)
-    y_center: 바의 세로 중앙
-    width   : 바의 전체 너비
-    height  : 바의 전체 높이
-    ratio   : 0.0 ~ 1.0 (채워진 비율)
-    flip    : True면 오른쪽->왼쪽으로 줄어드는 방식
-    """
     ratio = max(0.0, min(1.0, ratio))
-    fill_w = int(width * ratio)
-    if fill_w <= 0:
+    dst_w = int(width * ratio)
+    if dst_w <= 0:
         return
 
     if img:
         iw, ih = img.w, img.h
 
+        # ✅ 소스에서 자를 폭은 "이미지 폭 기준"
+        src_w = int(iw * ratio)
+        if src_w <= 0:
+            return
+
         if not flip:
-            # 왼쪽에서 오른쪽으로 채워짐
+            # 왼쪽 -> 오른쪽
             img.clip_draw(
                 0, 0,
-                fill_w, ih,
-                x_left + fill_w / 2, y_center,
-                fill_w, height
+                src_w, ih,
+                x_left + dst_w / 2, y_center,
+                dst_w, height
             )
         else:
-            # 오른쪽에서 왼쪽으로 채워짐
-            sx = iw - fill_w
+            # 오른쪽 -> 왼쪽
+            sx = iw - src_w
             img.clip_draw(
                 sx, 0,
-                fill_w, ih,
-                x_left + (width - fill_w / 2), y_center,
-                fill_w, height
+                src_w, ih,
+                x_left + (width - dst_w / 2), y_center,
+                dst_w, height
             )
     else:
-        # 이미지 없으면, 단순 사각형으로 대체 (outline만)
-        # ⚠ pico2d에는 "채워진" 사각형은 없어서, 일단 테두리만 보일 거야.
         r, g, b = color
         draw_rectangle(x_left, y_center - height / 2,
-                       x_left + fill_w, y_center + height / 2)
+                       x_left + dst_w, y_center + height / 2)
+
 
 
 # -----------------------
