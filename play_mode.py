@@ -359,11 +359,9 @@ def update():
 # -------------------------------------------------
 def draw_hp_sp_bar(fighter, side):
     """
-    - 검은 HP 프레임(ui_hp_frame)과 주황 HP 바(ui_hp_fill)를
-      같은 위치 / 같은 길이 / 같은 높이로 겹치게 그림
-    - 체력이 깎이면 주황 바의 가로 길이만 줄어들어서
-      뒤에 있는 검은 프레임이 보이도록 함
-    - 오른쪽 체력바는 오른쪽에서 왼쪽으로 줄어듦
+    - 검은 HP 프레임(ui_hp_frame)은 항상 같은 위치/크기로 고정
+    - 주황 HP 바(ui_hp_fill)는 왼쪽/오른쪽 끝을 기준으로만 줄어듦
+      (왼쪽 체력바는 왼쪽 고정, 오른쪽 체력바는 오른쪽 고정)
     """
     global ui_hp_frame, ui_sp_frame, ui_hp_fill, ui_sp_fill
 
@@ -385,31 +383,31 @@ def draw_hp_sp_bar(fighter, side):
 
     if side == 'left':
         base_x = LEFT_HP_X
-        hp_anchor = 'left'      # 왼쪽에서 오른쪽으로 줄어듦
+        hp_anchor_left = True   # 왼쪽 기준
     else:
         base_x = RIGHT_HP_X
-        hp_anchor = 'right'     # 오른쪽에서 왼쪽으로 줄어듦
+        hp_anchor_left = False  # 오른쪽 기준
 
     # ===================== HP 바 =====================
-    full_w = HP_FRAME_W
+    full_w  = HP_FRAME_W
     frame_h = HP_FRAME_H
 
-    # 1) 검은 프레임(바닥)
+    # 1) 검은 프레임(바닥)은 항상 고정
     if ui_hp_frame:
         ui_hp_frame.draw(base_x, hp_y, full_w, frame_h)
 
-    # 2) 주황 HP 바 (프레임과 "완전히 같은 크기/위치"에서 시작)
+    # 2) 주황 HP 바
     if ui_hp_fill and hp_ratio > 0.0:
-        cur_w = full_w * hp_ratio
-        bar_h = frame_h  # 프레임과 같은 높이
+        cur_w = full_w * hp_ratio         # 현재 HP 비율만큼 길이
+        bar_h = frame_h                   # 프레임과 높이 동일
 
-        if hp_anchor == 'left':
-            # 왼쪽 기준으로 줄어듦
-            left_x = base_x - full_w / 2
-            bar_cx = left_x + cur_w / 2
+        if hp_anchor_left:
+            # 왼쪽 끝 고정
+            left_x = base_x - full_w / 2          # 프레임의 왼쪽 x
+            bar_cx = left_x + cur_w / 2           # 줄어드는 길이의 중앙
         else:
-            # 오른쪽 기준으로 줄어듦
-            right_x = base_x + full_w / 2
+            # 오른쪽 끝 고정
+            right_x = base_x + full_w / 2         # 프레임의 오른쪽 x
             bar_cx  = right_x - cur_w / 2
 
         ui_hp_fill.draw(bar_cx, hp_y, cur_w, bar_h)
@@ -430,7 +428,7 @@ def draw_hp_sp_bar(fighter, side):
         cur_w  = full_w * sp_ratio
         bar_h  = sp_frame_h * 0.7
 
-        if hp_anchor == 'left':
+        if hp_anchor_left:
             left_x = base_x - full_w / 2
             bar_cx = left_x + cur_w / 2
         else:
@@ -438,6 +436,7 @@ def draw_hp_sp_bar(fighter, side):
             bar_cx  = right_x - cur_w / 2
 
         ui_sp_fill.draw(bar_cx, sp_y, cur_w, bar_h)
+
 
 
 # -------------------------------------------------
