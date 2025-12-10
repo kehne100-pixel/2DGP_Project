@@ -32,38 +32,34 @@ CHARACTERS = ['Dororo', 'Tamama', 'Keroro', 'Giroro', 'Kururu']
 # -------------------------------------------------
 # UI 관련 전역 (체력/게이지/타이머)
 # -------------------------------------------------
-ui_hp_frame = None   # 검은 프레임
-ui_hp_fill = None    # 빨간 HP 바
-ui_sp_fill = None    # 파란 SP 바
+ui_hp_frame = None   # HP 프레임(검은 바)
+ui_sp_frame = None   # SP 프레임(없으면 HP 프레임 재사용)
+ui_hp_fill  = None   # HP 채우기(주황)
+ui_sp_fill  = None   # SP 채우기(파랑)
 ui_timer_bg = None   # 타이머 박스
 
-digit_images = {}    # '0'~'9', ':' 이미지
+digit_images = {}
 
-ROUND_TIME = 120.0       # 60초
-round_start_time = 0.0  # 시작 시각(초)
+# -------------------------------------------------
+# 라운드 / UI 상수
+# -------------------------------------------------
+ROUND_TIME = 120.0        # 라운드 시간(초)
+round_start_time = 0.0    # 시작 시각
 
-# ====== UI 위치/크기 조절용 상수 (여기만 바꾸면 됨) ======
-UI_SCALE = 0.3          # HP/필살 프레임 전체 스케일
-UI_TOP_MARGIN = 140     # 화면 위에서 얼마만큼 내려올지 (숫자 커질수록 아래로)
+# HP / SP 바 위치/크기
+HP_FRAME_Y   = H - 150    # 체력바 Y 위치
+HP_FRAME_W   = 700        # 체력바 전체 길이(프레임 폭)
+HP_FRAME_H   = 40         # 체력바 프레임 높이
 
-LEFT_HP_X = 260         # 왼쪽 HP 프레임 중심 X
-RIGHT_HP_X = W - 260    # 오른쪽 HP 프레임 중심 X
+LEFT_HP_X  = 260          # 왼쪽 HP바 중심 x
+RIGHT_HP_X = W - 260      # 오른쪽 HP바 중심 x
 
-TIMER_SCALE = 0.35      # 타이머 프레임 스케일
-TIMER_Y = H - 120       # 타이머 중심 Y
-
-TIMER_DIGIT_W = 34      # 타이머 숫자 폭
-TIMER_DIGIT_H = 52      # 타이머 숫자 높이
-TIMER_DIGIT_GAP = 4     # 숫자 사이 간격
-
-HP_FRAME_Y      = H - 130   # 화면 위에서 얼마나 내릴지 (크면 더 아래로 내려감)
-HP_FRAME_W      = 420       # 프레임 가로 길이
-HP_FRAME_H      = 70        # 프레임 세로 길이
-HP_BAR_W_MAX    = 360       # 빨간 HP바 최대 길이
-SP_BAR_W_MAX    = 360       # 파란 SP바 최대 길이
-HP_SP_BAR_H     = 18        # HP/SP 바의 높이
-HP_BAR_OFFSET_Y = 10        # 프레임 중심에서 HP바까지의 Y 오프셋
-SP_BAR_OFFSET_Y = -12       # 프레임 중심에서 SP바까지의 Y 오프셋
+# 타이머 (지금 쓰는 값 유지)
+TIMER_SCALE     = 0.35
+TIMER_Y         = H - 120
+TIMER_DIGIT_W   = 34
+TIMER_DIGIT_H   = 52
+TIMER_DIGIT_GAP = 4
 
 
 def set_selected_index(index):
@@ -226,7 +222,6 @@ def handle_combat(attacker, defender):
         attacker.attack_hit_done = True
 
 
-
 # -------------------------------------------------
 # 타이머 보조 함수
 # -------------------------------------------------
@@ -245,7 +240,7 @@ def get_remaining_time():
 # -------------------------------------------------
 def init():
     global background, player, enemy, ai
-    global ui_hp_frame, ui_hp_fill, ui_sp_fill, ui_timer_bg
+    global ui_hp_frame, ui_sp_frame, ui_hp_fill, ui_sp_fill, ui_timer_bg
     global digit_images, round_start_time
 
     # 배경
@@ -276,8 +271,10 @@ def init():
     # ----- UI 이미지 로드 -----
     try:
         ui_hp_frame = load_image('ui_hp_frame.png')
+        ui_sp_frame = ui_hp_frame   # SP 프레임도 같은 이미지 사용
     except:
         ui_hp_frame = None
+        ui_sp_frame = None
         print("⚠️ ui_hp_frame.png 로드 실패")
 
     try:
@@ -301,7 +298,6 @@ def init():
     # 숫자 이미지(0~9, :)
     digit_images = {}
     for ch in '0123456789':
-        # timer0.png ~ timer9.png
         fname = f'timer{ch}.png'
         try:
             digit_images[ch] = load_image(fname)
@@ -322,12 +318,13 @@ def init():
 
 def finish():
     global background, player, enemy, ai
-    global ui_hp_frame, ui_hp_fill, ui_sp_fill, ui_timer_bg, digit_images
+    global ui_hp_frame, ui_sp_frame, ui_hp_fill, ui_sp_fill, ui_timer_bg, digit_images
     background = None
     player = None
     enemy = None
     ai = None
     ui_hp_frame = None
+    ui_sp_frame = None
     ui_hp_fill = None
     ui_sp_fill = None
     ui_timer_bg = None
@@ -358,23 +355,22 @@ def update():
 
 
 # -------------------------------------------------
-# HP / SP UI 상수  (타이머와는 별개)
+# HP / SP UI 그리기
 # -------------------------------------------------
-HP_FRAME_SCALE   = 0.28   # 프레임 축소 비율 (0.25~0.35 사이에서 조절)
-HP_FROM_TOP      = 120    # 화면 맨 위에서 떨어진 정도 (값이 클수록 더 아래로 내려감)
-
-HP_LEFT_X        = 260          # 왼쪽 HP바 중심 x
-HP_RIGHT_X       = W - 260      # 오른쪽 HP바 중심 x
-
-
-
 def draw_hp_sp_bar(fighter, side):
-    global ui_hp_frame, ui_hp_fill, ui_sp_fill
+    """
+    - 검은 HP 프레임(ui_hp_frame)과 주황 HP 바(ui_hp_fill)를
+      같은 위치 / 같은 길이 / 같은 높이로 겹치게 그림
+    - 체력이 깎이면 주황 바의 가로 길이만 줄어들어서
+      뒤에 있는 검은 프레임이 보이도록 함
+    - 오른쪽 체력바는 오른쪽에서 왼쪽으로 줄어듦
+    """
+    global ui_hp_frame, ui_sp_frame, ui_hp_fill, ui_sp_fill
 
-    if fighter is None or ui_hp_frame is None:
+    if fighter is None:
         return
 
-    # ---- 캐릭터 현재 HP / SP ----
+    # --- 값 가져오기 ---
     max_hp = getattr(fighter, 'max_hp', 100)
     hp     = getattr(fighter, 'hp', max_hp)
     max_sp = getattr(fighter, 'max_sp', 100)
@@ -383,83 +379,70 @@ def draw_hp_sp_bar(fighter, side):
     hp_ratio = 0.0 if max_hp <= 0 else max(0.0, min(1.0, hp / max_hp))
     sp_ratio = 0.0 if max_sp <= 0 else max(0.0, min(1.0, sp / max_sp))
 
-    # -------------------------------------------------
-    # 1) 프레임(검은 바) 크기/위치
-    # -------------------------------------------------
-    src_fw, src_fh = ui_hp_frame.w, ui_hp_frame.h
-    frame_w = int(src_fw * HP_FRAME_SCALE)
-    frame_h = int(src_fh * HP_FRAME_SCALE)
+    # --- 공통 위치(왼쪽/오른쪽만 다름) ---
+    hp_y = HP_FRAME_Y
+    sp_y = HP_FRAME_Y - 22      # HP바 아래쪽에 SP바
 
-    frame_y = H - HP_FROM_TOP
-    frame_x = HP_LEFT_X if side == 'left' else HP_RIGHT_X
-
-    # 화면 안쪽에 완전히 들어오도록 Y만 조정
-    if frame_y + frame_h / 2 > H:
-        frame_y = H - frame_h / 2 - 1
-
-    # 좌/우 프레임 그리기
     if side == 'left':
-        ui_hp_frame.draw(frame_x, frame_y, frame_w, frame_h)
+        base_x = LEFT_HP_X
+        hp_anchor = 'left'      # 왼쪽에서 오른쪽으로 줄어듦
     else:
-        ui_hp_frame.composite_draw(0, 'h', frame_x, frame_y, frame_w, frame_h)
+        base_x = RIGHT_HP_X
+        hp_anchor = 'right'     # 오른쪽에서 왼쪽으로 줄어듦
 
-    # -------------------------------------------------
-    # 2) 안쪽 HP/SP 바 위치(스크린샷처럼 위 빨간, 아래 파란)
-    #    프레임 안쪽에 약간의 여백을 둠
-    # -------------------------------------------------
-    inner_margin_x = frame_w * 0.08   # 좌우 여백
-    bar_max_w      = frame_w - inner_margin_x * 2
-    bar_h          = int(frame_h * 0.23)  # 프레임 높이의 ~1/4 정도
+    # ===================== HP 바 =====================
+    full_w = HP_FRAME_W
+    frame_h = HP_FRAME_H
 
-    # HP 위쪽, SP 아래쪽
-    hp_y = frame_y + bar_h * 0.8
-    sp_y = frame_y - bar_h * 0.8
+    # 1) 검은 프레임(바닥)
+    if ui_hp_frame:
+        ui_hp_frame.draw(base_x, hp_y, full_w, frame_h)
 
-    # ---------------- HP (빨간 바) ----------------
+    # 2) 주황 HP 바 (프레임과 "완전히 같은 크기/위치"에서 시작)
     if ui_hp_fill and hp_ratio > 0.0:
-        w = int(bar_max_w * hp_ratio)
+        cur_w = full_w * hp_ratio
+        bar_h = frame_h  # 프레임과 같은 높이
 
-        if side == 'left':
-            # 왼쪽 HP: 왼쪽에서 오른쪽으로 줄어들게
-            left_x = frame_x - bar_max_w / 2
-            cx = left_x + w / 2
-            ui_hp_fill.draw(int(cx), int(hp_y), w, bar_h)
+        if hp_anchor == 'left':
+            # 왼쪽 기준으로 줄어듦
+            left_x = base_x - full_w / 2
+            bar_cx = left_x + cur_w / 2
         else:
-            # 오른쪽 HP: 오른쪽에서 왼쪽으로 줄어들게 (좌우 반전)
-            right_x = frame_x + bar_max_w / 2
-            cx = right_x - w / 2
-            ui_hp_fill.composite_draw(
-                0, 'h',
-                int(cx), int(hp_y),
-                w, bar_h
-            )
+            # 오른쪽 기준으로 줄어듦
+            right_x = base_x + full_w / 2
+            bar_cx  = right_x - cur_w / 2
 
-    # ---------------- SP (파란 바) ----------------
+        ui_hp_fill.draw(bar_cx, hp_y, cur_w, bar_h)
+
+    # ===================== SP 바 =====================
+    # SP 프레임은 HP보다 조금 짧고 얇게
+    sp_frame_w = HP_FRAME_W * 0.65
+    sp_frame_h = HP_FRAME_H * 0.55
+
+    if ui_sp_frame is None:
+        ui_sp_frame = ui_hp_frame  # 별도 이미지 없으면 HP 프레임 재사용
+
+    if ui_sp_frame:
+        ui_sp_frame.draw(base_x, sp_y, sp_frame_w, sp_frame_h)
+
     if ui_sp_fill and sp_ratio > 0.0:
-        w = int(bar_max_w * sp_ratio)
+        full_w = sp_frame_w
+        cur_w  = full_w * sp_ratio
+        bar_h  = sp_frame_h * 0.7
 
-        if side == 'left':
-            # 왼쪽 SP: 왼쪽에서 오른쪽으로 차오르게
-            left_x = frame_x - bar_max_w / 2
-            cx = left_x + w / 2
-            ui_sp_fill.draw(int(cx), int(sp_y), w, bar_h)
+        if hp_anchor == 'left':
+            left_x = base_x - full_w / 2
+            bar_cx = left_x + cur_w / 2
         else:
-            # 오른쪽 SP: 오른쪽에서 왼쪽으로 차오르게
-            right_x = frame_x + bar_max_w / 2
-            cx = right_x - w / 2
-            ui_sp_fill.composite_draw(
-                0, 'h',
-                int(cx), int(sp_y),
-                w, bar_h
-            )
+            right_x = base_x + full_w / 2
+            bar_cx  = right_x - cur_w / 2
+
+        ui_sp_fill.draw(bar_cx, sp_y, cur_w, bar_h)
 
 
-
-
-
-
-
-
+# -------------------------------------------------
+# 타이머 UI (네가 주신 버전 유지)
+# -------------------------------------------------
 def draw_timer_ui():
     global ui_timer_bg, digit_images
 
